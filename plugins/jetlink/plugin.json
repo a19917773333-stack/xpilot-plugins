@@ -1,0 +1,26 @@
+{
+  "id": "jetlink",
+  "name": "Jetlink (phone model)",
+  "version": "1.0.0",
+  "api": 1,
+  "use": "onroad",
+  "category": "perception_model",
+  "entry": "plugin:Jetlink",
+  "author": "xpilot",
+  "description": "Run the driving model on a phone, Mac or Jetson on the USB cable (jetlink), and drive on xpilot's own model whenever the link is off, missing or late.",
+  "priority": 90,
+  "enable_param": "XpilotJetlink",
+  "claims": ["role:perception.model", "process:jetlinkd", "process:jetlink_modeld", "process:jetlink_peer"],
+  "settings": [
+    {"key": "XpilotJetlinkMode", "label": "Link", "choices": [["Off", 0], ["USB host", 1], ["iPhone", 2]]}
+  ],
+  "params": {
+    "XpilotJetlink": {"type": "BOOL", "default": "0"},
+    "XpilotJetlinkMode": {"type": "INT", "default": "0"},
+    "XpilotJetlinkProgress": {"type": "STRING", "default": ""},
+    "XpilotJetlinkSpec": {"type": "STRING", "default": ""},
+    "XpilotJetlinkPointers": {"type": "STRING", "default": ""},
+    "XpilotJetlinkMailbox": {"type": "STRING", "default": ""},
+    "XpilotJetlinkStatus": {"type": "STRING", "default": ""}
+  }
+}
