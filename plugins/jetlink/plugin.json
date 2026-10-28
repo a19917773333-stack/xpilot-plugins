@@ -3,7 +3,7 @@
   "name": "Jetlink (phone model)",
   "version": "1.0.0",
   "api": 1,
-  "use": "onroad",
+  "use": "both",
   "category": "perception_model",
   "entry": "plugin:Jetlink",
   "author": "xpilot",
