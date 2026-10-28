@@ -280,13 +280,13 @@
     {
       "id": "tesla_radar",
       "name": "Tesla Radar (OEM / ARS408)",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "api": 1,
       "category": "data_source",
       "author": "xpilot",
       "description": "Replaces the port's radar with the sunnypilot backends: OEM (Tesla radar as the port parses it), ARS408 (Continental ARS408 object list on bus 1) or off. Read only: it parses radar CAN and publishes radarTracks, it never sends frames.",
-      "url": "https://raw.githubusercontent.com/onemiless/xpilot-plugins/main/dist/tesla_radar-1.0.0.tar.gz",
-      "sha256": "6ddfe90c10c3ea8f0b9d05184b6865bcda19825ec2b615ac6765b129d468d102",
+      "url": "https://raw.githubusercontent.com/onemiless/xpilot-plugins/main/dist/tesla_radar-1.1.0.tar.gz",
+      "sha256": "236a0488e73c5f87b5fc74acd9354a47f59c3ba37f41861d6d580fda33c21af6",
       "platform": null,
       "default": false
     },

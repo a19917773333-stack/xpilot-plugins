@@ -25,3 +25,17 @@
 selection. The backend selection needs the host's `Plugin`, so it skips (rather than stubbing `sys.modules`) when
 xpilot is not on PYTHONPATH. Validation status: unit tests pass, **no on-car run yet**; ARS408 hardware was not
 connected.
+## Parity with the C3
+
+Every module of the C3's `opendbc/sunnypilot/car/tesla/ars408/` package is here, byte for byte apart from imports
+(`opendbc.sunnypilot.car.tesla.ars408.x` -> `.x`) and two deliberate differences:
+
+| C3 | Here |
+|---|---|
+| `selector.py` picks by `TeslaFlagsSP.ARS408_RADAR` / `RADAR_DISABLED` | `plugin.py` picks by `XpilotTeslaRadarBackend`, the plugin's own switch |
+| `constants.ARS408_DBC = "ARS408"` (opendbc ships the DBC) | the DBC is vendored beside the package and addressed by path |
+| `transmitter.py` is wired into the car's CAN send | `transmitter.py` only builds frames; nothing here sends (see Claims and limits) |
+
+The C3's `opendbc/car/tesla/radar_interface.py` also carries a local fix (`aRel`, `yvRel`, `measured` under
+`RadarPoint.deprecated`). That is opendbc's Tesla car code, which XPILOT.md section 2 forbids editing from a
+plugin: check it against the opendbc revision this branch pins instead.

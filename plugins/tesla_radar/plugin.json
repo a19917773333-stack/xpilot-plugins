@@ -1,7 +1,7 @@
 {
   "id": "tesla_radar",
   "name": "Tesla Radar (OEM / ARS408)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "api": 1,
   "use": "onroad",
   "category": "data_source",
