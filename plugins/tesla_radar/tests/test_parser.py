@@ -3,14 +3,14 @@ import math
 import pytest
 
 from opendbc.can import CANPacker
-from ..constants import ARS408_BUS, ARS408_GENERAL, ARS408_STATUS
+from ..constants import ARS408_BUS, ARS408_DBC, ARS408_GENERAL, ARS408_STATUS
 from ..models import ObjectGeneral, ObjectStatus, RadarStateSnapshot
 from ..parser import ARS408Parser
 
 
 @pytest.fixture
 def packer() -> CANPacker:
-  return CANPacker("ARS408")
+  return CANPacker(ARS408_DBC)
 
 
 def test_parser_decodes_sensor_zero_object_frames(packer: CANPacker) -> None:
