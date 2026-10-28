@@ -22,4 +22,6 @@
     PYTHONPATH=<xpilot>:<xpilot>/opendbc_repo python3 -m pytest -q plugins/tesla_radar/tests
 
 `tests/` covers the ported parser, cycle assembler, tracker, diagnostics, the radar interface and the backend
-selection. Validation status: unit tests pass, **no on-car run yet**; ARS408 hardware was not connected.
+selection. The backend selection needs the host's `Plugin`, so it skips (rather than stubbing `sys.modules`) when
+xpilot is not on PYTHONPATH. Validation status: unit tests pass, **no on-car run yet**; ARS408 hardware was not
+connected.
