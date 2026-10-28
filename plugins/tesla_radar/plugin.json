@@ -1,0 +1,42 @@
+{
+  "id": "tesla_radar",
+  "name": "Tesla Radar (OEM / ARS408)",
+  "version": "1.0.0",
+  "api": 1,
+  "use": "onroad",
+  "category": "data_source",
+  "entry": "plugin:TeslaRadar",
+  "author": "xpilot",
+  "description": "Replaces the port's radar with the sunnypilot backends: OEM (Tesla radar as the port parses it), ARS408 (Continental ARS408 object list on bus 1) or off. Read only: it parses radar CAN and publishes radarTracks, it never sends frames.",
+  "priority": 100,
+  "enable_param": "XpilotTeslaRadar",
+  "claims": [
+    "source:radar"
+  ],
+  "settings": [
+    {
+      "key": "XpilotTeslaRadarBackend",
+      "label": "Backend",
+      "choices": [
+        ["OEM", 0],
+        ["ARS408", 1],
+        ["Off", 2]
+      ]
+    }
+  ],
+  "params": {
+    "XpilotTeslaRadar": {
+      "type": "BOOL",
+      "default": "0"
+    },
+    "XpilotTeslaRadarBackend": {
+      "type": "INT",
+      "default": "1"
+    }
+  },
+  "requires": {
+    "hooks": [
+      "radar_interface"
+    ]
+  }
+}
