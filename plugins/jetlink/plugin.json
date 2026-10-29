@@ -1,7 +1,7 @@
 {
   "id": "jetlink",
   "name": "Jetlink (phone model)",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "api": 1,
   "use": "both",
   "category": "perception_model",

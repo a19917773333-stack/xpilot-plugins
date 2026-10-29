@@ -58,12 +58,12 @@ def main() -> None:
   from openpilot.common.params import Params
   from openpilot.tesla.plugin_params import ParamsView
   from openpilot.common.swaglog import cloudlog
-  from msgq.visionipc import VisionIpcClient, VisionStreamType
+  from msgq.visionipc import VisionIpcClient
+  from openpilot.cereal.visionipc import VisionStreamType
   from jetlink.openpilot.warp import Warp, Warps
 
   from .seam import adapter
 
-  params = Params()
   params = ParamsView(Params())
   box = wait_mailbox(params)
   if box is None:
@@ -77,7 +77,11 @@ def main() -> None:
     return
   warp = Warp(warps.load(*geometry), parts.model_face().frame_size(*geometry[2:]))
 
-  main_stream = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_ROAD, True)
+  # the stream enum moved out of msgq and ROAD was renamed NARROW_ROAD on newer trees
+  road_stream = getattr(VisionStreamType, "VISION_STREAM_ROAD", None)
+  if road_stream is None:
+    road_stream = VisionStreamType.VISION_STREAM_NARROW_ROAD
+  main_stream = VisionIpcClient("camerad", road_stream, True)
   extra_stream = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, False)
   for client in (main_stream, extra_stream):
     if not client.connect(True):
