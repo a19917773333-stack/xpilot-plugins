@@ -8,7 +8,8 @@ class JetlinkTile(Tile):
 
   def state(self, sm):
     from openpilot.common.params import Params
-    params = Params()
+    from openpilot.tesla.plugin_params import ParamsView
+    params = ParamsView(Params())
     return params.get("XpilotJetlinkStatus") or ""
 
   def draw(self, rect, size, state):

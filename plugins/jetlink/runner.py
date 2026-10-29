@@ -28,8 +28,9 @@ def slices_from_spec(value) -> dict[str, slice]:
 
 def main() -> None:
   from openpilot.common.params import Params
+  from openpilot.tesla.plugin_params import ParamsView
   from openpilot.selfdrive.modeld.modeld import run_with_model_source
-  params = Params()
+  params = ParamsView(Params())
   source = ModelSource(gettempdir(), decoder(slices_from_spec(params.get(SPEC_PARAM))), admit_heads)
   params.put(MAILBOX_PARAM, str(source.path), block=True)
   try:

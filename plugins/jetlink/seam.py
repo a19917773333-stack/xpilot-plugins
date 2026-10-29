@@ -79,7 +79,8 @@ class Adapter:
     store = self._stores.get(where)
     if store is None:
       from openpilot.common.params import Params
-      store = self._stores[where] = Params()
+      from openpilot.tesla.plugin_params import ParamsView
+      store = self._stores[where] = ParamsView(Params())
     return store
 
   def params_dir(self) -> Path:

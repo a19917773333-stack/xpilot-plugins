@@ -56,6 +56,7 @@ def main() -> None:
   import time as _time
 
   from openpilot.common.params import Params
+  from openpilot.tesla.plugin_params import ParamsView
   from openpilot.common.swaglog import cloudlog
   from msgq.visionipc import VisionIpcClient, VisionStreamType
   from jetlink.openpilot.warp import Warp, Warps
@@ -63,6 +64,7 @@ def main() -> None:
   from .seam import adapter
 
   params = Params()
+  params = ParamsView(Params())
   box = wait_mailbox(params)
   if box is None:
     cloudlog.warning("jetlink: modeld published no mailbox, the phone stays unused")
