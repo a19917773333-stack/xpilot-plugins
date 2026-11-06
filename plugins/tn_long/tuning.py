@@ -2,7 +2,7 @@ import copy
 import fcntl
 import math
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, fields, replace
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from openpilot.cereal import log
@@ -377,43 +377,3 @@ def apply_backend_profile(params: Any, backend: BackendSpec, profile: int) -> Lo
     raise ValueError("invalid longitudinal tuning profile")
   save_backend_values(params, backend, dict(values), profile)
   return _validated_values(values)
-
-
-def _ramp(current: LongitudinalTuning, target: LongitudinalTuning, dt: float) -> LongitudinalTuning:
-  if dt <= 0:
-    return current
-  changes = {}
-  for field in fields(current):
-    old = getattr(current, field.name)
-    new = getattr(target, field.name)
-    rate = VALUE_SPECS[field.name][3]
-    changes[field.name] = old + max(-rate * dt, min(rate * dt, new - old))
-  return replace(current, **changes)
-
-
-class TuningController:
-  """Poll a validated backend snapshot and retain the last known-good revision."""
-  def __init__(self, params: Any, backend: BackendSpec, poll_interval: float = 1.0):
-    self.params = params
-    self.backend = backend
-    self.poll_interval = poll_interval
-    self.poll_elapsed = poll_interval
-    self.current = LongitudinalTuning()
-    self.target = self.current
-    self.initialized = False
-
-  def update(self, dt: float) -> LongitudinalTuning:
-    self.poll_elapsed += max(dt, 0.0)
-    if self.poll_elapsed >= self.poll_interval:
-      self.poll_elapsed = 0.0
-      try:
-        target = backend_values(self.params, self.backend)
-      except (ValueError, UnknownKeyName):
-        target = None
-      if target is not None:
-        self.target = target
-        if not self.initialized:
-          self.current = target
-          self.initialized = True
-    self.current = _ramp(self.current, self.target, dt)
-    return self.current

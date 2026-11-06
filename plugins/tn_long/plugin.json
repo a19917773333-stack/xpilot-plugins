@@ -1,7 +1,7 @@
 {
   "id": "tn_long",
   "name": "TN Longitudinal (TN-NoDEC)",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "api": 1,
   "use": "onroad",
   "category": "longitudinal_planning",
@@ -21,5 +21,8 @@
     "ExtTnAccelPersonality": {"type": "INT", "default": "1"},
     "ExtTnLongTuning": {"type": "JSON", "note": "TN runtime tuning config (schema v2); absent = TN defaults"}
   },
-  "platform": null
+  "platform": {
+    "machine": "aarch64",
+    "python": "cpython-312"
+  }
 }

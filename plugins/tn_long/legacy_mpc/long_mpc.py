@@ -23,7 +23,8 @@ from ..legacy_mpc.contract import (
   get_jerk_factor,
 )
 from openpilot.common.swaglog import cloudlog
-from ..tuning import LongitudinalTuning, TuningController
+from ..tuning import LongitudinalTuning
+from ..tuning_controller import TuningController
 
 
 MODEL_NAME = "sp_legacy_cruise_v1"

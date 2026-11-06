@@ -304,6 +304,22 @@
       "default": false
     },
     {
+      "id": "tn_long",
+      "name": "TN Longitudinal (TN-NoDEC)",
+      "version": "1.0.3",
+      "api": 1,
+      "category": "longitudinal_planning",
+      "author": "xpilot",
+      "description": "Replaces SP's longitudinal plan, including lead following, with the TN-NoDEC planner (legacy cruise-obstacle MPC and TN acceleration controller). Prebuilt acados solvers: installs only on the platform it was built for. TN's stopping policy in controlsd is not included.",
+      "url": "https://raw.githubusercontent.com/onemiless/xpilot-plugins/main/dist/tn_long-1.0.3.tar.gz",
+      "sha256": "ece10d1c912f9eb29a648c8090c00dabe2fdc213a4a3075004b284601e3f9727",
+      "platform": {
+        "machine": "aarch64",
+        "python": "cpython-312"
+      },
+      "default": false
+    },
+    {
       "id": "traffic_light",
       "name": "Traffic Light Control (Experimental)",
       "version": "1.1.0",
