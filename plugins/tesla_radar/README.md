@@ -19,6 +19,9 @@
 - If the host has no `radarUnavailable` port radar (other brands), the host never calls this hook.
 - Triangle rendering is an optional `RoadOverlay`. It reads fresh `radarState` leads from the current trip: radar-sourced leads are gold
   (`255,215,0`) and vision leads are white (`255,255,255`), matching the pre-xpilot display the owner requested.
+- On current hosts the triangle is drawn after the native white lead bar, using the host's selected lead anchor and source. If the
+  host has no visible native lead bar (for example stock longitudinal control), the road-projection path remains as a fallback.
+- Marker fill uses scanline rectangles because triangle primitives produced no pixels in the target pyray build.
 - The source colors and marker intent are ported from
   `a19917773333-stack/slgame@6b5dc07f892d24111dbcd67bbf7a890183ba02b7:openpilot/selfdrive/ui/onroad/model_renderer.py`
   and adapted to the host's public `road.polygon()` projection instead of accessing the model transform.

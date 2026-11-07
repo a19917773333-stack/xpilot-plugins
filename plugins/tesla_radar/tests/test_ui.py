@@ -155,3 +155,33 @@ def test_projection_failure_does_not_draw():
   road = h.render(FakeSubMasterState(radar_state(lead(20.0, 0.0, True))), NoProjection())
   assert road.polygon_calls == 1
   assert not h.markers
+
+
+def test_modern_host_draws_after_lead_bars_with_host_source():
+  class ModernRoad(FakeRoad):
+    def lead_markers(self):
+      return [SimpleNamespace(x=350.0, y=220.0, d_rel=20.0, radar=False)]
+
+  h = Harness()
+  road = ModernRoad()
+  h.overlay.update(FakeSubMasterState(radar_state(lead(20.0, 0.0, True))))
+  h.overlay.draw(road)
+  assert road.polygon_calls == 0 and not h.markers
+
+  h.overlay.draw_after_leads(road)
+  assert len(h.markers) == 1
+  pos, color, d_rel = h.markers[0]
+  assert (pos.x, pos.y, d_rel) == (350.0, 220.0, 20.0)
+  assert color == radar_ui.VISION_COLOR
+
+
+def test_marker_starts_below_the_host_lead_anchor(monkeypatch):
+  calls = []
+  monkeypatch.setattr(radar_ui.rl, "draw_rectangle", lambda x, y, w, h, color: calls.append((x, y, w, h, color)))
+
+  radar_ui.RadarTriangles._draw_marker(radar_ui.rl.Vector2(350.0, 220.0), radar_ui.RADAR_COLOR, 20.0)
+
+  marker_rows = [call for call in calls if call[4] == radar_ui.RADAR_COLOR]
+  assert marker_rows
+  assert marker_rows[0][1] == 225
+  assert len(calls) > len(marker_rows)  # shadow was drawn first

@@ -92,6 +92,29 @@ class RadarTriangles(RoadOverlay):
   def draw(self, road) -> None:
     if not self._show or not self._leads:
       return
+    if hasattr(road, "lead_markers"):
+      return
+    self._draw_projections(road)
+
+  def draw_after_leads(self, road) -> None:
+    """Draw after the host lead bars so the source triangle cannot be covered."""
+    if not self._show or not self._leads or not hasattr(road, "lead_markers"):
+      return
+
+    markers = road.lead_markers()
+    if not markers:
+      self._draw_projections(road)  # stock longitudinal control has no native lead bars
+      return
+
+    for marker in reversed(markers):
+      width, height = self._marker_size(marker.d_rel)
+      rect = road.rect
+      if marker.y + 5.0 + height > rect.y + rect.height - 4.0:
+        continue
+      x = float(np.clip(marker.x, rect.x + width / 2.0, rect.x + rect.width - width / 2.0))
+      self._draw_marker(rl.Vector2(x, float(marker.y)), RADAR_COLOR if marker.radar else VISION_COLOR, float(marker.d_rel))
+
+  def _draw_projections(self, road) -> None:
     for lead in reversed(self._leads):
       marker = self._project_marker(lead, road)
       if marker is None:
@@ -155,14 +178,35 @@ class RadarTriangles(RoadOverlay):
       return DEFAULT_ROAD_HEIGHT_M
 
   @staticmethod
-  def _draw_marker(pos: rl.Vector2, color: rl.Color, d_rel: float) -> None:
+  def _marker_size(d_rel: float) -> tuple[float, float]:
     size = float(np.clip((25.0 * 30.0) / (max(d_rel, 0.0) / 3.0 + 30.0), 15.0, 30.0) * 2.35)
     width = float(np.clip(size * 0.62, 20.0, 44.0))
     height = float(np.clip(size * 0.34, 10.0, 22.0))
-    tip_y = pos.y - height / 2.0
-    base_y = pos.y + height / 2.0
+    return width, height
+
+  @staticmethod
+  def _draw_marker(pos: rl.Vector2, color: rl.Color, d_rel: float) -> None:
+    width, height = RadarTriangles._marker_size(d_rel)
+    tip_y = pos.y + 5.0
+    base_y = tip_y + height
     marker = [(pos.x, tip_y), (pos.x + width / 2.0, base_y), (pos.x - width / 2.0, base_y)]
     shadow = [(pos.x, tip_y - 2.0), (pos.x + width / 2.0 + 2.0, base_y + 2.0),
               (pos.x - width / 2.0 - 2.0, base_y + 2.0)]
-    rl.draw_triangle_fan(shadow, len(shadow), rl.Color(0, 0, 0, 170))
-    rl.draw_triangle_fan(marker, len(marker), color)
+    # Triangle primitives did not produce pixels in the target pyray build; scanline rectangles do.
+    RadarTriangles._fill_triangle(shadow, rl.Color(0, 0, 0, 170))
+    RadarTriangles._fill_triangle(marker, color)
+
+  @staticmethod
+  def _fill_triangle(points, color: rl.Color) -> None:
+    tip_x, tip_y = points[0]
+    base_y = points[1][1]
+    if base_y <= tip_y:
+      return
+    for y in range(math.ceil(tip_y), math.floor(base_y) + 1):
+      progress = (y - tip_y) / (base_y - tip_y)
+      left_x = tip_x + (points[2][0] - tip_x) * progress
+      right_x = tip_x + (points[1][0] - tip_x) * progress
+      x0, x1 = math.floor(left_x), math.ceil(right_x)
+      if x1 <= x0:
+        x0, x1 = math.floor(tip_x), math.floor(tip_x) + 1
+      rl.draw_rectangle(x0, y, x1 - x0, 1, color)
