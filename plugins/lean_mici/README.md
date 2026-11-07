@@ -1,4 +1,5 @@
-# lean_mici 0.8.2
+# lean_mici 0.8.4
+0.8.4 republishes the same runtime code with LF source files so the published archive matches a clean checkout.
 
 0.8.2 (2026-10-28): the navigation tile has a tall layout (big arrow, distance and instruction lines) that the big
 screen uses in the column beside the drive view. A dropped phone link is logged (`lean_mici.link_lost` /

@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+# Published native code stays byte-for-byte identical across checkouts.
+*.so binary
+*.so.* binary
