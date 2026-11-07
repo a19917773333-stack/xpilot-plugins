@@ -1,0 +1,27 @@
+{
+  "id": "mads_settings",
+  "name": "MADS Settings",
+  "version": "0.1.1",
+  "api": 1,
+  "use": "both",
+  "category": "tools",
+  "entry": "plugin:MadsSettings",
+  "author": "Sniper-Eon",
+  "priority": 100,
+  "enable_param": "ExtMadsSettingsEnabled",
+  "description": "One place for MADS switches: MADS on/off, lateral steering on brake, unified engagement, and the Tesla screen-button mode. Writes the host MADS params only while parked.",
+  "claims": ["process:mads_settingsd"],
+  "settings": [
+    {"key": "ExtMadsEnabled", "label": "MADS enabled"},
+    {"key": "ExtMadsSteeringMode", "label": "Steering on brake", "choices": [["Remain active", "0"], ["Pause on brake", "1"], ["Disengage on brake", "2"]]},
+    {"key": "ExtMadsUnified", "label": "Unified engagement"},
+    {"key": "ExtMadsScreenButton", "label": "Tesla screen button", "choices": [["Off", "0"], ["Three finger", "1"], ["Four finger", "2"], ["Five finger", "3"]]}
+  ],
+  "params": {
+    "ExtMadsSettingsEnabled": {"type": "BOOL", "default": "0"},
+    "ExtMadsEnabled": {"type": "BOOL", "default": "1"},
+    "ExtMadsSteeringMode": {"type": "INT", "default": "0"},
+    "ExtMadsUnified": {"type": "BOOL", "default": "1"},
+    "ExtMadsScreenButton": {"type": "INT", "default": "1"}
+  }
+}

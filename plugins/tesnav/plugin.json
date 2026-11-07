@@ -1,0 +1,41 @@
+{
+  "id": "tesnav",
+  "name": "TesNav Navigation",
+  "version": "0.1.1",
+  "api": 1,
+  "use": "both",
+  "category": "navigation",
+  "entry": "plugin:TesNav",
+  "author": "juyun86",
+  "description": "TesNav phone guidance and recommended-lane display, with optional turn slowdown. No automatic lane changes or steering. Controlled private LAN only.",
+  "priority": 100,
+  "enable_param": "ExtTesNavEnabled",
+  "claims": [
+    "source:navigation",
+    "process:tesnavd",
+    "long.target"
+  ],
+  "requires": {
+    "hooks": [
+      "navigation_ingress",
+      "processes",
+      "long_target"
+    ]
+  },
+  "settings": [
+    {
+      "key": "ExtTesNavSlowdown",
+      "label": "Navigation turn slowdown (experimental)"
+    }
+  ],
+  "params": {
+    "ExtTesNavEnabled": {
+      "type": "BOOL",
+      "default": "0"
+    },
+    "ExtTesNavSlowdown": {
+      "type": "BOOL",
+      "default": "0"
+    }
+  }
+}

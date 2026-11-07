@@ -1,0 +1,29 @@
+{
+  "id": "cruise_settings",
+  "name": "Cruise Settings",
+  "version": "0.1.0",
+  "api": 1,
+  "use": "both",
+  "category": "tools",
+  "entry": "plugin:CruiseSettings",
+  "author": "Sniper-Eon",
+  "priority": 100,
+  "enable_param": "ExtCruiseSettingsEnabled",
+  "description": "Cruise switches in one plugin: intelligent cruise buttons, smart cruise from vision and map, main-cruise permission and the initial set speed. Writes the host params only while parked.",
+  "claims": ["process:cruise_settingsd"],
+  "settings": [
+    {"key": "ExtCruiseIcbm", "label": "Intelligent cruise buttons"},
+    {"key": "ExtCruiseSccVision", "label": "Smart cruise from vision"},
+    {"key": "ExtCruiseSccMap", "label": "Smart cruise from map"},
+    {"key": "ExtCruiseMainCruise", "label": "Main cruise allowed"},
+    {"key": "ExtCruiseInitialSpeed", "label": "Initial set speed", "range": [20, 160, 5, "km/h", 1]}
+  ],
+  "params": {
+    "ExtCruiseSettingsEnabled": {"type": "BOOL", "default": "0"},
+    "ExtCruiseIcbm": {"type": "BOOL", "default": "0"},
+    "ExtCruiseSccVision": {"type": "BOOL", "default": "0"},
+    "ExtCruiseSccMap": {"type": "BOOL", "default": "0"},
+    "ExtCruiseMainCruise": {"type": "BOOL", "default": "1"},
+    "ExtCruiseInitialSpeed": {"type": "INT", "default": "40"}
+  }
+}

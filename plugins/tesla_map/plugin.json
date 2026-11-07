@@ -1,0 +1,22 @@
+{
+  "id": "tesla_map",
+  "name": "Tesla Map Diagnostics",
+  "version": "1.0.0",
+  "api": 1,
+  "use": "onroad",
+  "category": "data_source",
+  "entry": "plugin:TeslaMap",
+  "author": "Sniper-Eon",
+  "description": "Read-only VEH map bounds, fork evidence and fused-limit comparison. No control output.",
+  "priority": 100,
+  "enable_param": "ExtTeslaMapEnabled",
+  "claims": [
+    "msg:tesla.map"
+  ],
+  "params": {
+    "ExtTeslaMapEnabled": {
+      "type": "BOOL",
+      "default": "0"
+    }
+  }
+}

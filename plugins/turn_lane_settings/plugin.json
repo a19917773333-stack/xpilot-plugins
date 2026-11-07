@@ -1,0 +1,86 @@
+{
+  "id": "turn_lane_settings",
+  "name": "Turn & Lane Settings",
+  "version": "1.0.0",
+  "api": 1,
+  "use": "offroad",
+  "category": "ui",
+  "entry": "plugin:TurnLaneSettings",
+  "author": "Sniper-Eon",
+  "description": "Parked settings for existing turn intent and lane-change delay. The master shows the summary tile; saved driving settings are independent.",
+  "priority": 100,
+  "enable_param": "XpTurnLaneSettingsEnabled",
+  "claims": [],
+  "settings": [
+    {
+      "key": "LaneTurnDesire",
+      "label": "Use Lane Turn Desires"
+    },
+    {
+      "key": "LaneTurnValue",
+      "label": "Turn intent speed limit (maximum 32 km/h)",
+      "choices": [
+        [
+          "16.1 km/h",
+          10
+        ],
+        [
+          "24.1 km/h",
+          15
+        ],
+        [
+          "29.0 km/h",
+          18
+        ],
+        [
+          "30.6 km/h",
+          19
+        ],
+        [
+          "32.2 km/h",
+          20
+        ]
+      ]
+    },
+    {
+      "key": "AutoLaneChangeTimer",
+      "label": "Auto lane-change delay",
+      "choices": [
+        [
+          "Off",
+          -1
+        ],
+        [
+          "Steering nudge",
+          0
+        ],
+        [
+          "0.05 s",
+          1
+        ],
+        [
+          "0.5 s",
+          2
+        ],
+        [
+          "1 s",
+          3
+        ],
+        [
+          "2 s",
+          4
+        ],
+        [
+          "3 s",
+          5
+        ]
+      ]
+    }
+  ],
+  "params": {
+    "XpTurnLaneSettingsEnabled": {
+      "type": "BOOL",
+      "default": "0"
+    }
+  }
+}

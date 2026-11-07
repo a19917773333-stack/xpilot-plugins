@@ -1,0 +1,46 @@
+{
+  "id": "phone_vision",
+  "name": "Phone side-vehicle vision",
+  "version": "1.2.0",
+  "api": 1,
+  "category": "data_source",
+  "entry": "plugin:PhoneVision",
+  "author": "Sniper-Eon",
+  "description": "Optional original single wide-camera vehicle detection transport,640pixels,max4Hz; no camera while disabled.",
+  "priority": 100,
+  "enable_param": "ExtPhoneVisionEnabled",
+  "claims": [
+    "process:phone_visiond"
+  ],
+  "settings": [
+    {
+      "key": "ExtPhoneVisionWidth",
+      "label": "Image width",
+      "choices": [
+        [
+          "320",
+          320
+        ],
+        [
+          "640",
+          640
+        ]
+      ]
+    }
+  ],
+  "params": {
+    "ExtPhoneVisionEnabled": {
+      "type": "BOOL",
+      "default": "0"
+    },
+    "ExtPhoneVisionWidth": {
+      "type": "INT",
+      "default": "640"
+    },
+    "ExtPhoneVisionToken": {
+      "type": "STRING",
+      "note": "Private connection code. Do not publish."
+    }
+  },
+  "use": "both"
+}

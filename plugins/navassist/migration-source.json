@@ -1,0 +1,9 @@
+{
+  "legacy_source": "Sniper-Eon/openpilot:codex/egpu-jetlink-navassist",
+  "includes_uncommitted_deployed_fix": "2026-10-25 signal continuity",
+  "sha256": {
+    "navassist/lane_intent.py": "1a6d42ca8e5f7993e8ef8f3367b7b28cf17a68d60be55fbecc2fc28493917630",
+    "navassist/nav_lane_intentd.py": "7be54133373c409d092eaeca5c1ddc8f762d5cf79ec9a00c1845ea0549a5fa55",
+    "selfdrive/controls/lib/relative_lane_consistency.py": "1167e917df3287f1fcb3e9093fce070d22c86198f8b2c7fb14d9aec7ee0c2f35"
+  }
+}

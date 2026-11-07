@@ -1,0 +1,500 @@
+{
+  "id": "cp_nav",
+  "name": "CP Native Navigation",
+  "version": "0.2.4",
+  "api": 1,
+  "category": "navigation",
+  "entry": "plugin:CPNav",
+  "author": "Sniper-Eon",
+  "description": "Independent CP v2 native Carrot navigation candidate. Separate settings, bounded lamp preparation and cruise targets; passing requires qualified side observations. No camera streaming.",
+  "priority": 100,
+  "enable_param": "ExtCpNavEnabled",
+  "claims": [
+    "process:cp_navd",
+    "source:route",
+    "role:lane_change.policy",
+    "can.tx:0x3E9:1",
+    "long.target",
+    "alert",
+    "msg:cp.state",
+    "msg:lanes.intent",
+    "msg:oem.lanes",
+    "source:turnsignals"
+  ],
+  "settings": [
+    {
+      "key": "ExtCpNavSignals",
+      "label": "CP physical turn signals"
+    },
+    {
+      "key": "ExtCpNavLaneChanges",
+      "label": "CP navigation lane changes"
+    },
+    {
+      "key": "ExtCpNavSpeedControl",
+      "label": "CP navigation speed control"
+    },
+    {
+      "key": "ExtCpNavSpeedRaise",
+      "label": "CP intelligent speed increase"
+    },
+    {
+      "key": "ExtCpNavOvertakeMode",
+      "label": "CP passing mode",
+      "choices": [
+        [
+          "Off",
+          0
+        ],
+        [
+          "Suggest only",
+          1
+        ],
+        [
+          "Automatic requests",
+          2
+        ]
+      ]
+    },
+    {
+      "key": "ExtCpNavDrivingStyle",
+      "label": "CP driving style",
+      "choices": [
+        [
+          "Conservative",
+          0
+        ],
+        [
+          "Standard",
+          1
+        ],
+        [
+          "Aggressive",
+          2
+        ]
+      ]
+    },
+    {
+      "key": "ExtCpNavAutoTurn",
+      "label": "CP native turn control",
+      "choices": [
+        [
+          "Off",
+          0
+        ],
+        [
+          "Signals only",
+          1
+        ],
+        [
+          "Signals and slowdown",
+          2
+        ],
+        [
+          "Slowdown only",
+          3
+        ]
+      ]
+    },
+    {
+      "key": "ExtCpNavTurnKph",
+      "label": "CP turn target speed",
+      "range": [
+        10,
+        40,
+        1,
+        "km/h",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavTurnEndS",
+      "label": "CP turn end lead",
+      "range": [
+        1,
+        15,
+        1,
+        "s",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavDecelCms2",
+      "label": "CP navigation deceleration",
+      "range": [
+        50,
+        250,
+        1,
+        "cm/s2",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavSpeedFactorPct",
+      "label": "CP speed safety factor",
+      "range": [
+        80,
+        110,
+        1,
+        "%",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavRoadOffsetKph",
+      "label": "CP road limit offset",
+      "range": [
+        -20,
+        20,
+        1,
+        "km/h",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavSpeedEndS",
+      "label": "CP speed control end lead",
+      "range": [
+        1,
+        15,
+        1,
+        "s",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavBumpKph",
+      "label": "CP speed bump target",
+      "range": [
+        10,
+        50,
+        1,
+        "km/h",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavBumpTimeS",
+      "label": "CP speed bump lead",
+      "range": [
+        1,
+        10,
+        1,
+        "s",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavRearHoldM",
+      "label": "CP rear camera hold distance",
+      "range": [
+        0,
+        500,
+        1,
+        "m",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavMaxKph",
+      "label": "CP maximum target speed",
+      "range": [
+        30,
+        140,
+        1,
+        "km/h",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavRaiseStepKph",
+      "label": "CP speed increase step",
+      "range": [
+        1,
+        10,
+        1,
+        "km/h",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavRaiseIntervalS",
+      "label": "CP speed increase interval",
+      "range": [
+        3,
+        30,
+        1,
+        "s",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavLaneDelayMs",
+      "label": "CP lane preparation delay",
+      "range": [
+        500,
+        5000,
+        100,
+        "ms",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavOvertakeMinKph",
+      "label": "CP minimum passing speed",
+      "range": [
+        70,
+        120,
+        1,
+        "km/h",
+        1
+      ]
+    },
+    {
+      "key": "ExtCpNavBeep",
+      "label": "CP turn signal chime"
+    }
+  ],
+  "params": {
+    "ExtCpNavEnabled": {
+      "type": "BOOL",
+      "default": "0"
+    },
+    "ExtCpNavSignals": {
+      "type": "BOOL",
+      "default": "1"
+    },
+    "ExtCpNavLaneChanges": {
+      "type": "BOOL",
+      "default": "1"
+    },
+    "ExtCpNavSpeedControl": {
+      "type": "BOOL",
+      "default": "1"
+    },
+    "ExtCpNavSpeedRaise": {
+      "type": "BOOL",
+      "default": "0"
+    },
+    "ExtCpNavOvertakeMode": {
+      "type": "INT",
+      "default": "0"
+    },
+    "ExtCpNavDrivingStyle": {
+      "type": "INT",
+      "default": "1"
+    },
+    "ExtCpNavAutoTurn": {
+      "type": "INT",
+      "default": "2"
+    },
+    "ExtCpNavTurnKph": {
+      "type": "INT",
+      "default": "20"
+    },
+    "ExtCpNavTurnEndS": {
+      "type": "INT",
+      "default": "5"
+    },
+    "ExtCpNavDecelCms2": {
+      "type": "INT",
+      "default": "120"
+    },
+    "ExtCpNavSpeedFactorPct": {
+      "type": "INT",
+      "default": "100"
+    },
+    "ExtCpNavRoadOffsetKph": {
+      "type": "INT",
+      "default": "0"
+    },
+    "ExtCpNavSpeedEndS": {
+      "type": "INT",
+      "default": "5"
+    },
+    "ExtCpNavBumpKph": {
+      "type": "INT",
+      "default": "30"
+    },
+    "ExtCpNavBumpTimeS": {
+      "type": "INT",
+      "default": "3"
+    },
+    "ExtCpNavRearHoldM": {
+      "type": "INT",
+      "default": "100"
+    },
+    "ExtCpNavCurveMode": {
+      "type": "INT",
+      "default": "0"
+    },
+    "ExtCpNavCurveMinKph": {
+      "type": "INT",
+      "default": "20"
+    },
+    "ExtCpNavCurveFactorPct": {
+      "type": "INT",
+      "default": "100"
+    },
+    "ExtCpNavCountdownMode": {
+      "type": "INT",
+      "default": "0"
+    },
+    "ExtCpNavMaxKph": {
+      "type": "INT",
+      "default": "120"
+    },
+    "ExtCpNavRaiseStepKph": {
+      "type": "INT",
+      "default": "10"
+    },
+    "ExtCpNavRaiseIntervalS": {
+      "type": "INT",
+      "default": "3"
+    },
+    "ExtCpNavLaneDelayMs": {
+      "type": "INT",
+      "default": "500"
+    },
+    "ExtCpNavOvertakeMinKph": {
+      "type": "INT",
+      "default": "70"
+    },
+    "ExtCpNavBeep": {
+      "type": "BOOL",
+      "default": "1"
+    }
+  },
+  "rules": [
+    {
+      "type": "template_clone.v2",
+      "tx_address": 1001,
+      "rx_address": 1001,
+      "tx_bus": 1,
+      "rx_bus": 1,
+      "tx_length": 8,
+      "rx_length": 8,
+      "template_ttl_us": 1500000,
+      "min_interval_us": 100000,
+      "session": 2,
+      "max_count": 200,
+      "idle_reset_us": 0,
+      "window_us": 60000000,
+      "counter": {
+        "kind": 1,
+        "bit_offset": 52,
+        "width": 4
+      },
+      "tx_checksum": {
+        "kind": 1,
+        "checksum_byte": 7
+      },
+      "rx_checksum": {
+        "kind": 1,
+        "checksum_byte": 7
+      },
+      "predicate_mask": [
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "predicate_value": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "copy_mask": [
+        255,
+        252,
+        225,
+        255,
+        255,
+        255,
+        15,
+        0
+      ],
+      "constant_mask": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "constant_value": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "fields": [
+        {
+          "bit_offset": 8,
+          "width": 2,
+          "min": 1,
+          "max": 3,
+          "exempt_values": [
+            3
+          ]
+        },
+        {
+          "bit_offset": 17,
+          "width": 4,
+          "min": 4,
+          "max": 8,
+          "exempt_values": [
+            4
+          ]
+        }
+      ],
+      "legal_tuples": [
+        {
+          "field_mask": 3,
+          "values": [
+            1,
+            8
+          ]
+        },
+        {
+          "field_mask": 3,
+          "values": [
+            2,
+            8
+          ]
+        },
+        {
+          "field_mask": 3,
+          "values": [
+            3,
+            4
+          ]
+        }
+      ],
+      "engagement": "primary_or_lateral"
+    }
+  ],
+  "requires": {
+    "rule_abi": 2,
+    "hooks": [
+      "observe_can",
+      "control_sends"
+    ]
+  },
+  "use": "both"
+}
