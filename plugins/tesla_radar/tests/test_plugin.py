@@ -48,6 +48,9 @@ def test_ars408_replaces_with_vendor_interface():
 def test_off_is_silent_base_interface():
   radar = select(OFF)
   assert isinstance(radar, RadarInterfaceBase) and not isinstance(radar, ARS408RadarInterface)
+  outs = [radar.update([]) for _ in range(5)]
+  assert outs[:4] == [None] * 4
+  assert outs[4] is not None and not outs[4].points
 
 
 def test_unknown_or_missing_setting_falls_back_to_oem():
