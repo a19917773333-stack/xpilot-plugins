@@ -101,7 +101,7 @@
       "author": "Sniper-Eon",
       "description": "Independent CP v2 native Carrot navigation candidate. Separate settings, bounded lamp preparation and cruise targets; passing requires qualified side observations. No camera streaming.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/cp_nav-0.2.4.tar.gz",
-      "sha256": "f7317272903cb097ba1b3bd65f1cec6b7fa020f7a0fb137c382eff5cf0b3e429",
+      "sha256": "e22436cb7ee1251c8ee17efc699ff1d9399f089239d3dd41603889198adf962c",
       "platform": null,
       "default": false
     },
@@ -114,7 +114,7 @@
       "author": "Sniper-Eon",
       "description": "Cruise switches in one plugin: intelligent cruise buttons, smart cruise from vision and map, main-cruise permission and the initial set speed. Writes the host params only while parked.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/cruise_settings-0.1.0.tar.gz",
-      "sha256": "fbbd4d8008b5695425fa210a38af7542e60ad09a6ea8160e425f4070fefccc39",
+      "sha256": "281c25052078ef83c3603cab755062cee507124002db1b1a7eadf2d5c147910e",
       "platform": null,
       "default": false
     },
@@ -208,7 +208,7 @@
       "author": "Sniper-Eon",
       "description": "One place for MADS switches: MADS on/off, lateral steering on brake, unified engagement, and the Tesla screen-button mode. Writes the host MADS params only while parked.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/mads_settings-0.1.1.tar.gz",
-      "sha256": "642e956120f8274995cd96543a5ce531f17e4deda1adf500834b36ea43ffb96b",
+      "sha256": "228384e6522aa536806f976aa628de3a07df136d313515dfa13fef70d0f2ae7f",
       "platform": null,
       "default": false
     },
@@ -247,7 +247,7 @@
       "author": "Sniper-Eon",
       "description": "TesNav v3 navigation with integrated lane positioning, bounded physical signals, maneuver slowdown and chime. CP native navigation is a separate mutually exclusive plugin.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/navassist-2.4.5-final.tar.gz",
-      "sha256": "5a42b5c9c71f3e777fa627e9dc483c5e0c4f873849b80067880a950f46249e0e",
+      "sha256": "ea8b3d7443a7eda510db549444ec0893e519c0a1a3e1b55a2a60cf6724a9e293",
       "platform": null,
       "default": false
     },
@@ -286,7 +286,7 @@
       "author": "Sniper-Eon",
       "description": "Optional original single wide-camera vehicle detection transport,640pixels,max4Hz; no camera while disabled.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/phone_vision-1.2.0.tar.gz",
-      "sha256": "2d3c2d96ceb87858ea1404d94b2b7d153a79d19bd2b3c370278c3236f666817b",
+      "sha256": "4c5fad0b6ffd8fbf6e8badf46826603b43e825b5ae84b3470c0f80c8a70f901b",
       "platform": null,
       "default": false
     },
@@ -351,7 +351,7 @@
       "author": "Sniper-Eon",
       "description": "Read-only VEH map bounds, fork evidence and fused-limit comparison. No control output.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/tesla_map-1.0.0.tar.gz",
-      "sha256": "c56aed4e14bb8049b3c649abdb0031f7d36e208db32e6123cc557d40e841ff20",
+      "sha256": "4c053db37297342e25c259ddf061890fcb56e24d6697248e0b6261d39da54b26",
       "platform": null,
       "default": false
     },
@@ -403,7 +403,7 @@
       "author": "juyun86",
       "description": "TesNav phone guidance and recommended-lane display, with optional turn slowdown. No automatic lane changes or steering. Controlled private LAN only.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/tesnav-0.1.1.tar.gz",
-      "sha256": "6e78e0d3f6fc53e4f3b1a8e9505db6e519b00e9a24981c0e618b361b18e6f5ba",
+      "sha256": "03ab88660fa0bd0490f064e739680f16d76dc9f876ca3a9873d15d33db0ba584",
       "platform": null,
       "default": false
     },
@@ -445,7 +445,7 @@
       "author": "Sniper-Eon",
       "description": "Parked settings for existing turn intent and lane-change delay. The master shows the summary tile; saved driving settings are independent.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/turn_lane_settings-1.0.0.tar.gz",
-      "sha256": "25eb566b20b937aeede7965ded0829a01350a2106a6e2b79f648bfa3a65f8eea",
+      "sha256": "2a81e1c5b811f6f8d4a396696effa772c9df80b89f2998f6492cda1c4bcc3d8c",
       "platform": null,
       "default": false
     },
@@ -458,7 +458,7 @@
       "author": "Sniper-Eon",
       "description": "Chinese option names, values, descriptions and plugin pages. Display only; preserves settings and control behavior.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/zh_cn-1.1.11.tar.gz",
-      "sha256": "2bffb4e495c9ea48d98d208b22f8e7653979e37dfba9499043a92b34335e66a4",
+      "sha256": "6510713e2ad7c080df44606464f1f5a9e3c34db6d3c455bf286f792eddd223f2",
       "platform": null,
       "default": false
     }

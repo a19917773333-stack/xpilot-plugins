@@ -23,7 +23,8 @@ SKIP = {"__pycache__", ".pytest_cache", "tests"}  # tests run in CI, devices do 
 def archive(plugin: Path) -> bytes:
   raw = io.BytesIO()
   with tarfile.open(fileobj=raw, mode="w", format=tarfile.PAX_FORMAT) as tar:
-    for path in sorted(p for p in plugin.rglob("*") if not SKIP & set(p.relative_to(plugin).parts)):
+    paths = (p for p in plugin.rglob("*") if not SKIP & set(p.relative_to(plugin).parts))
+    for path in sorted(paths, key=lambda p: p.relative_to(plugin).as_posix()):
       if path.is_symlink():
         raise ValueError(f"{path}: links are not allowed")
       info = tarfile.TarInfo(f"{plugin.name}/{path.relative_to(plugin).as_posix()}")
@@ -44,7 +45,7 @@ def archive(plugin: Path) -> bytes:
 def build() -> dict[Path, bytes]:
   files, entries = {}, []
   for plugin in sorted(p.parent for p in (ROOT / "plugins").glob("*/plugin.json")):
-    m = json.loads((plugin / "plugin.json").read_text())
+    m = json.loads((plugin / "plugin.json").read_text(encoding="utf-8"))
     missing = [f for f in REQUIRED if f not in m]
     if missing or m["id"] != plugin.name or m["api"] != API:
       raise ValueError(f"{plugin.name}: bad manifest (missing {missing}, id {m.get('id')}, api {m.get('api')})")
