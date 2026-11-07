@@ -1,7 +1,7 @@
 {
   "id": "tn_long",
   "name": "TN Longitudinal (TN-NoDEC)",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "api": 1,
   "use": "onroad",
   "category": "longitudinal_planning",

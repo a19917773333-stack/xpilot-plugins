@@ -24,4 +24,7 @@ running the target openpilot version:
 (`machine`, Python ABI). Devices only offer and load it on a matching platform. Rebuild after openpilot changes its
 Python, numpy or acados versions. Until it is built, `build_index.py` leaves it out of `index.json`.
 
+The reviewed C3-built solver libraries are committed in `legacy_mpc/c_generated_code*` so a clean checkout can
+reproduce the release archive. A device rebuild replaces those files in place.
+
 Status: host import check only. The solver build and the planner have not run on a device in this form.

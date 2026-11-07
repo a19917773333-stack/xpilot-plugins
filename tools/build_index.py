@@ -14,7 +14,7 @@ import sys
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
-RAW = "https://raw.githubusercontent.com/onemiless/xpilot-plugins/main"
+RAW = "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main"
 API = 1
 REQUIRED = ("id", "name", "version", "api", "category", "entry")
 SKIP = {"__pycache__", ".pytest_cache", "tests"}  # tests run in CI, devices do not need them

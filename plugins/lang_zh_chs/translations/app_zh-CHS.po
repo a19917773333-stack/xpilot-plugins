@@ -1059,8 +1059,8 @@ msgid "Done"
 msgstr "完成"
 
 #: openpilot/tesla/ui/store_page.py:21
-msgid "Download the plugin list from github.com/onemiless/xpilot-plugins."
-msgstr "从 github.com/onemiless/xpilot-plugins 下载插件列表。"
+msgid "Download the plugin list from github.com/a19917773333-stack/xpilot-plugins."
+msgstr "从 github.com/a19917773333-stack/xpilot-plugins 下载插件列表。"
 
 #: openpilot/tesla/ui/screen.py:515
 msgid "Drive"
