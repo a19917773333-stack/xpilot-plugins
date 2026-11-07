@@ -1,6 +1,6 @@
 import pytest
 
-from plugins.mads_settings.settings import read
+from mads_settings.settings import read
 
 
 class View:

@@ -1,4 +1,4 @@
-from plugins.cruise_settings.settings import read
+from cruise_settings.settings import read
 
 
 class View:
