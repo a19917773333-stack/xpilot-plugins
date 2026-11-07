@@ -7,6 +7,7 @@
 | `Factory radar` (default) | returns a host marker that defers to the port's own Tesla radar |
 | `ARS408 radar` | Continental ARS408 object list on bus 1 (`0x60A`..`0x60D`), tracked into `RadarData.points` |
 | `Radar off` | the silent base interface, so `radarTracks` goes empty instead of stale |
+| `Radar triangle display` | on by default; radar leads are gold and vision leads are white on the road view |
 
 ## Claims and limits
 
@@ -16,6 +17,11 @@
   runtime rules in the host repository, so the radar has to be configured outside xpilot (factory object output).
 - The port radar runs alongside and takes over for good if this plugin raises, per XPILOT.md section 7.
 - If the host has no `radarUnavailable` port radar (other brands), the host never calls this hook.
+- Triangle rendering is an optional `RoadOverlay`. It reads fresh `radarState` leads from the current trip: radar-sourced leads are gold
+  (`255,215,0`) and vision leads are white (`255,255,255`), matching the pre-xpilot display the owner requested.
+- The source colors and marker intent are ported from
+  `a19917773333-stack/slgame@6b5dc07f892d24111dbcd67bbf7a890183ba02b7:openpilot/selfdrive/ui/onroad/model_renderer.py`
+  and adapted to the host's public `road.polygon()` projection instead of accessing the model transform.
 
 ## Tests
 

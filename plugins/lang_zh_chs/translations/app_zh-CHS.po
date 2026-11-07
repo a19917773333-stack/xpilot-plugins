@@ -1905,3 +1905,7 @@ msgstr "408雷达"
 #: plugins/tesla_radar/plugin.json
 msgid "Radar off"
 msgstr "关闭雷达"
+
+#: plugins/tesla_radar/plugin.json
+msgid "Radar triangle display"
+msgstr "雷达三角显示"
