@@ -1,7 +1,7 @@
 """Radar backend selection in plugin.py.
 
 Failure cases:
-- OEM must leave the port's radar alone (return None), never replace it with a second parser.
+- OEM must defer to the port's radar, never replace it with a second parser or suppress its output.
 - ARS408 must return the vendor interface, not the OEM one.
 - Off must return the silent base interface so radarTracks go empty instead of stale.
 - Unknown or missing setting must fall back to OEM, not raise or guess a backend.
@@ -15,7 +15,7 @@ from opendbc.car.interfaces import RadarInterfaceBase
 # sys.modules, which would hand every later plugin in the same session a fake base.
 pytest.importorskip("openpilot.tesla.plugin")
 
-from ..plugin import OEM, OFF, ARS408, TeslaRadar
+from ..plugin import OEM, OFF, ARS408, OEMRadarInterface, TeslaRadar
 from ..radar import ARS408RadarInterface
 
 
@@ -33,8 +33,11 @@ def select(value):
   return TeslaRadar.radar_interface(cp, structs.CarParamsSP(), Params(value))
 
 
-def test_oem_keeps_port_radar():
-  assert select(OEM) is None
+def test_oem_defers_to_port_radar():
+  radar = select(OEM)
+  assert isinstance(radar, OEMRadarInterface)
+  assert radar.uses_port_radar
+  assert radar.update([]) is None
 
 
 def test_ars408_replaces_with_vendor_interface():

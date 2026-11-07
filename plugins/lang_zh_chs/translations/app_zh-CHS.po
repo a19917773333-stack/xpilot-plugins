@@ -1749,6 +1749,10 @@ msgstr "已移除 {}：重启后生效"
 msgid "required role {}"
 msgstr "需要角色 {}"
 
+#: openpilot/tesla/ui/offroad.py:174
+msgid "turn on first: {}"
+msgstr "请先打开：{}"
+
 #: openpilot/tesla/ui/pages/plugins.py:84
 msgid "store (removable)"
 msgstr "商店（可移除）"
@@ -1853,3 +1857,51 @@ msgstr "{} 已排队"
 #: openpilot/tesla/ui/plugins_page.py:83
 msgid "{}/{} on"
 msgstr "已开启 {}/{}"
+
+#: openpilot/tesla/ui/offroad.py
+msgid "Driving Modes"
+msgstr "驾驶模式"
+
+#: openpilot/tesla/ui/offroad.py
+msgid "Lateral Control"
+msgstr "横向控制"
+
+#: openpilot/tesla/ui/offroad.py
+msgid "Longitudinal Control"
+msgstr "纵向控制"
+
+#: openpilot/tesla/ui/offroad.py
+msgid "Car Actions (CAN)"
+msgstr "车辆动作（CAN）"
+
+#: openpilot/tesla/ui/offroad.py
+msgid "Data & System"
+msgstr "数据与系统"
+
+#: openpilot/tesla/ui/offroad.py
+msgid "Tiles & Overlays"
+msgstr "磁贴与叠加层"
+
+#: openpilot/tesla/ui/offroad.py
+msgid "Languages"
+msgstr "语言"
+
+#: plugins/tesla_radar/plugin.json
+msgid "Tesla Radar (OEM / ARS408)"
+msgstr "Tesla 雷达（原厂 / ARS408）"
+
+#: plugins/tesla_radar/plugin.json
+msgid "Radar mode"
+msgstr "雷达模式"
+
+#: plugins/tesla_radar/plugin.json
+msgid "Factory radar"
+msgstr "原厂雷达"
+
+#: plugins/tesla_radar/plugin.json
+msgid "ARS408 radar"
+msgstr "408雷达"
+
+#: plugins/tesla_radar/plugin.json
+msgid "Radar off"
+msgstr "关闭雷达"
