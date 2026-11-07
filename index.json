@@ -286,7 +286,7 @@
       "author": "xpilot",
       "description": "Selects the factory Tesla radar, a Continental ARS408 object list on bus 1, or no radar. Factory radar is the default. Read only: it parses radar CAN and publishes radarTracks, it never sends frames.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/tesla_radar-1.1.4.tar.gz",
-      "sha256": "e432f82a324af8f1ffdd483871f38fd815d35de77dfeb002272cc81dee33b26b",
+      "sha256": "4c650d3c8cfd428e666addfb9c79747b8bef209b752d05ceb39f0c3fb765eee7",
       "platform": null,
       "default": false
     },
