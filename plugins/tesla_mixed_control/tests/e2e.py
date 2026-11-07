@@ -36,7 +36,7 @@ from opendbc.car import structs, Bus, DT_CTRL
 from opendbc.car.lateral import apply_steer_angle_limits_vm, get_max_angle_delta_vm
 from opendbc.car.tesla.carcontroller import get_safety_CP
 from opendbc.car.tesla.interface import CarInterface
-from opendbc.car.tesla.values import CarControllerParams, DBC
+from opendbc.car.tesla.values import CarControllerParams, get_dbc
 from opendbc.car.vehicle_model import VehicleModel
 from opendbc.sunnypilot.car.tesla.values import TeslaFlagsSP
 from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle
@@ -122,6 +122,7 @@ def run(output):
 
     from opendbc.can import CANPacker
     from opendbc.car.tesla.values import CANBUS, TeslaFlags
+    from opendbc.car.tesla.teslacan import get_steer_ctrl_type
     from openpilot.cereal import custom, log
     from openpilot.selfdrive.car.car_events import CarEvents
     from openpilot.selfdrive.selfdrived.events import Events
@@ -137,10 +138,15 @@ def run(output):
     for case, present, enabled in (("M1", True, False), ("M2", True, True), ("M3", False, False)):
       params.put_bool("XpTeslaMixedControl", enabled)
       parsers = event_ci.CS.get_can_parsers(event_cp, sp_cp)
-      msg = CANPacker(DBC[cp.carFingerprint][Bus.party]).make_can_msg("DAS_settings", CANBUS.autopilot_party,
-                                                                  {"DAS_autosteerEnabled": 1})
+      packer = CANPacker(get_dbc(cp.carFingerprint, cp.flags)[Bus.party])
+      messages = [packer.make_can_msg("DAS_settings", CANBUS.autopilot_party,
+                                      {"DAS_autosteerEnabled": 1})]
+      if event_cp.flags & TeslaFlags.DAS_STEERING_2_BIT:
+        messages.append(packer.make_can_msg("DAS_status", CANBUS.autopilot_party,
+                                          {"DAS_autopilotState": 3}))
       _ = parsers[Bus.ap_party].vl["DAS_settings"]
-      parsers[Bus.ap_party].update([(0, [msg])])
+      _ = parsers[Bus.ap_party].vl["DAS_status"]
+      parsers[Bus.ap_party].update([(0, messages)])
       cs, _ = event_ci.CS.update(parsers)
       cs.gearShifter, cs.cruiseState.available, cs.cruiseState.enabled = structs.CarState.GearShifter.drive, True, True
       cs.doorOpen = cs.seatbeltUnlatched = cs.steerFaultPermanent = False
@@ -164,7 +170,8 @@ def run(output):
                                          and not d.events_sp.has(custom.OnroadEventSP.EventName.xpilotPluginFault))))
     (output / "event-filter.json").write_text(json.dumps(event_cases, indent=2) + "\n")
     assert all(c["passed"] for c in event_cases), event_cases
-    assert cls.CATEGORY == "controller" and cls.CLAIMS == ("role:lateral.controller", "event.filter")
+    assert cls.MANIFEST.stage == "controller" and cls.CATEGORY == "lateral"
+    assert cls.CLAIMS == ("role:lateral.controller", "event.filter")
     checks.append("M1-M4: zero per-frame Params reads; real DAS_settings CAN -> true CarState -> SP events -> shared filter -> SP engagement")
     params.put_bool("XpTeslaMixedControl", False)
 
@@ -278,7 +285,7 @@ def run(output):
         ctl = controller()
         port = CarInterface(cp, sp_cp)
         port.CC.frame = phase
-        parser = CANParser(DBC[cp.carFingerprint][Bus.party], [("DAS_steeringControl", 50)], 0)
+        parser = CANParser(get_dbc(cp.carFingerprint, cp.flags)[Bus.party], [("DAS_steeringControl", 50)], 0)
         previous = 0.0
         target_before = 0.0
         for tick in range(130):
@@ -314,7 +321,10 @@ def run(output):
             parser.update([((tick + 1) * 10_000_000, steering)])
             decoded = -parser.vl["DAS_steeringControl"]["DAS_steeringAngleRequest"]
             assert abs(decoded - sent.steeringAngleDeg) <= 0.050001
-            assert parser.vl["DAS_steeringControl"]["DAS_steeringControlType"] == (1 if cc.latActive else 0)
+            expected_type = get_steer_ctrl_type(cp.flags, 1 if cc.latActive else 0)
+            actual_type = parser.vl["DAS_steeringControl"]["DAS_steeringControlType"]
+            assert actual_type == expected_type, (actual_type, expected_type, tick, bool(cc.latActive), cp.flags,
+                                                    sp_cp.flags, port.CP_SP.flags)
             limit = min(5, get_max_angle_delta_vm(15, vm, CarControllerParams))
             assert abs(sent.steeringAngleDeg - previous) <= limit + 1e-6, (tick, previous, sent.steeringAngleDeg, limit)
             if tick in (101, 102):
