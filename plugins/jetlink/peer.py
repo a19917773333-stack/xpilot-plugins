@@ -45,13 +45,24 @@ def mailbox(params):
     return None
 
 
+def link_lost(client) -> bool:
+  """Has the borrowed USB session ended, even if no API call has noticed yet?
+
+  The v0.9.0 FunctionFS reader detects an unbind while the parked peer sleeps,
+  but it records the error on the transport; client.dead changes only when a
+  later client operation observes it. Checking the transport lets offroad
+  release the old lease immediately so manager can rebuild the session.
+  """
+  return bool(getattr(client, "dead", False) or getattr(client, "link_lost", False))
+
+
 def wait_for_mailbox(params, *, timeout: float | None = None,
                      poll_interval: float = MAILBOX_POLL, client=None):
   """Hold the open USB lease until modeld starts publishing frames."""
   import time as _time
   deadline = None if timeout is None else _time.monotonic() + timeout
   while True:
-    if client is not None and client.dead:
+    if client is not None and link_lost(client):
       raise ConnectionError("the phone disconnected while waiting for modeld")
     box = mailbox(params)
     if box is not None:

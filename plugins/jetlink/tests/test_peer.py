@@ -147,6 +147,18 @@ def test_wait_for_mailbox_stops_when_the_phone_disconnects():
     wait_for_mailbox(Params(), poll_interval=0.001, client=client)
 
 
+def test_wait_for_mailbox_stops_when_usb_reenumerates_behind_an_idle_client():
+  """A parked peer does no I/O, so the transport reader, not client.dead, sees a USB edge."""
+  class Params:
+    @staticmethod
+    def get(key):
+      return None
+
+  client = SimpleNamespace(dead=False, link_lost=True)
+  with pytest.raises(ConnectionError, match="phone disconnected"):
+    wait_for_mailbox(Params(), timeout=0.02, poll_interval=0.001, client=client)
+
+
 def test_missing_phone_engine_invalidates_a_stale_ready_spec():
   """A wiped phone must release the loan so provisioning can run again."""
   class EngineMissing(Exception):
