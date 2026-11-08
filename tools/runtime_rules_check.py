@@ -7,7 +7,7 @@ Failure cases listed before implementation (after firmware R1-R13):
 - R16 compiled AUTO/AMBIENT (NAV when present) tables differ from the host reference bytes
 - R17 a rule plugin omits requires.rule_abi=1 or is incompatible with HOST_CAPS
 - R18 setup still writes per-plugin safetyParam bits, loses auto-speed gates, or card drops its rules
-- R19 an old release remains indexed, the minor version is not bumped, or published bytes differ from source
+- R19 a rule plugin is missing or duplicated in the index, its indexed version differs from source, or published bytes differ from source
 
 Run with the X-33 host checkout on PYTHONPATH; --output retains hashes and compiled tables.
 """
@@ -45,6 +45,8 @@ def main():
     examples = {'rule': pr.rule, 'field': pr.field}
     exec(compile(ast.Module(body=definitions, type_ignores=[]), str(fixture), 'exec'), examples)
     references = {'auto_speed': examples['AUTO'], 'ambient_light': examples['AMBIENT']}
+    if (ROOT / 'plugins/cp_nav').exists():
+      references['cp_nav'] = examples['NAV']
     if (ROOT / 'plugins/navassist').exists():
       references['navassist'] = examples['NAV']
     from build_index import archive
@@ -59,9 +61,10 @@ def main():
             errors.append(f'R14 {path.relative_to(ROOT)}: safety')
     for pid, reference in references.items():
       source = ROOT / 'plugins' / pid
+      expected_version = json.loads((source / 'plugin.json').read_text())['version']
       entries = [e for e in index if e['id'] == pid]
-      if len(entries) != 1 or entries[0]['version'] != '1.1.0':
-        errors.append(f'R19 {pid}: expected one 1.1.0 release')
+      if len(entries) != 1 or entries[0]['version'] != expected_version:
+        errors.append(f'R19 {pid}: expected one indexed {expected_version} release')
       for entry in entries:
         path = ROOT / 'dist' / entry['url'].split('/dist/', 1)[1]
         data = path.read_bytes()
@@ -100,27 +103,29 @@ def main():
       from openpilot.tesla.plugin_params import ParamsView
       classes = [p for p in plugins.PLUGINS if p.NAME in references]
       assert {p.NAME for p in classes} == set(references), ('R18', plugins.LOAD_ERRORS)
-      core = SimpleNamespace(put=lambda key, value, **kw: values.update({key: value}))
-      params = ParamsView(core, plugins.INSTALLED_SPECS)
       for cls in classes:
-        params.put_bool(cls.ENABLE_PARAM, True)
-      faults = []
-      for longitudinal in (False, True):
-        for vehicle_bus in (False, True):
-          values = {}
-          cp = get_safety_CP()
-          cp.openpilotLongitudinalControl = longitudinal
-          cp_sp = structs.CarParamsSP(flags=TeslaFlagsSP.HAS_VEHICLE_BUS if vehicle_bus else 0, safetyParam=1)
-          with patch.object(plugins, 'PLUGINS', classes), patch.object(plugins, 'record_fault', lambda *a: faults.append(str(a))):
-            card = plugins.CarPlugins(cp, params)
-            card.setup(cp_sp)
-          assert not faults and len(card.plugins) == len(classes), ('R18', faults)
-          assert cp_sp.safetyParam == 1, 'R18 safetyParam changed'
-          auto = next(p for p in card.plugins if p.NAME == 'auto_speed')
-          assert auto.controller.configured == (longitudinal and vehicle_bus), 'R18 auto-speed gate'
-          expected = pr.param(pr.table([references[p.NAME] for p in card.plugins]))
-          assert values['XpilotPandaRules'] == expected, 'R18 card table differs'
-          (output / 'card-param.bin').write_bytes(expected)
+        for longitudinal in (False, True):
+          for vehicle_bus in (False, True):
+            values = {}
+            core = SimpleNamespace(put=lambda key, value, **kw: values.update({key: value}))
+            params = ParamsView(core, plugins.INSTALLED_SPECS)
+            params.put_bool(cls.ENABLE_PARAM, True)
+            faults = []
+            cp = get_safety_CP()
+            cp.openpilotLongitudinalControl = longitudinal
+            cp_sp = structs.CarParamsSP(flags=TeslaFlagsSP.HAS_VEHICLE_BUS if vehicle_bus else 0, safetyParam=1)
+            with patch.object(plugins, 'PLUGINS', classes), patch.object(plugins, 'active', lambda _params, selected=cls: [selected]), \
+                 patch.object(plugins, 'record_fault', lambda *a: faults.append(str(a))):
+              card = plugins.CarPlugins(cp, params)
+              card.setup(cp_sp)
+            assert not faults and [p.NAME for p in card.plugins] == [cls.NAME], ('R18', cls.NAME, faults)
+            assert cp_sp.safetyParam == 1, 'R18 safetyParam changed'
+            if cls.NAME == 'auto_speed':
+              auto = next(p for p in card.plugins if p.NAME == 'auto_speed')
+              assert auto.controller.configured == (longitudinal and vehicle_bus), 'R18 auto-speed gate'
+            expected = pr.param(pr.table([references[p.NAME] for p in card.plugins]))
+            assert values['XpilotPandaRules'] == expected, 'R18 card table differs'
+            (output / 'card-param.bin').write_bytes(expected)
   host = Path(mf.__file__).resolve().parents[2]
   for path in (host / 'openpilot/tesla/manifest.py', host / 'openpilot/tesla/panda_rules.py',
                host / 'opendbc_repo/opendbc/safety/tests/xpilot_rules_helpers.py'):

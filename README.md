@@ -55,6 +55,9 @@ Trust comes from this reviewed repository, so only merge what you have read.
 - `plugins/tesla_mixed_control`: dzid26 angle-based cooperative steering. Enable while parked and restart;
   SP must own steering and stock Autosteer must not steer concurrently. See its README for timing and host-only validation limits.
 - `plugins/lang_zh_chs`: complete Simplified Chinese language pack for the xpilot interface.
+- `plugins/cp_nav`: independent Carrot CP navigation receiver, display and bounded vehicle integration.
+- `plugins/navassist`: phone navigation v3 receiver, lane preparation, HUD and optional slowdown.
+- `plugins/tesnav`: lightweight TesNav phone guidance, recommended lanes and optional turn slowdown.
 
 Moved from the xpilot repository (keep their original param keys):
 

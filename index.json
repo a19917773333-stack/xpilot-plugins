@@ -93,6 +93,19 @@
       "default": true
     },
     {
+      "id": "cp_nav",
+      "name": "CP Native Navigation",
+      "version": "0.2.5",
+      "api": 1,
+      "category": "navigation",
+      "author": "Sniper-Eon",
+      "description": "Independent CP v2 native Carrot navigation candidate. Separate settings, bounded lamp preparation and cruise targets; passing requires qualified side observations. No camera streaming.",
+      "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/cp_nav-0.2.5.tar.gz",
+      "sha256": "8d3dd7c53c2fa8eb9654ef4ee3a24fe40f6e869a1ff570abf77cdef3723f141d",
+      "platform": null,
+      "default": false
+    },
+    {
       "id": "cruise_settings",
       "name": "Cruise Settings",
       "version": "0.1.0",
@@ -222,6 +235,19 @@
       "description": "Taps the turn stalk when the phone big model (lean_mici) predicts the driver's blinker (now or within 2 s) for 1 s, in that direction; SP's auto lane change does the rest. Only with an active route that the phone feeds to the model, never on single-lane roads, roundabouts, ramps or in tunnels (phone road data). 8 s apart, never with a car in that blind spot, while you steer, accelerate or brake, or below 30 km/h. Needs lean_mici 0.8+, SP auto lane change and the vehicle-bus harness.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/nav_lane_change-0.3.0.tar.gz",
       "sha256": "768946fd65ddfc9146219ae3e943359604715d1f6ce27a620d93e99b1ec3ef62",
+      "platform": null,
+      "default": false
+    },
+    {
+      "id": "navassist",
+      "name": "Navigation Assist (phone)",
+      "version": "2.4.6",
+      "api": 1,
+      "category": "navigation",
+      "author": "Sniper-Eon",
+      "description": "TesNav v3 navigation with integrated lane positioning, bounded physical signals, maneuver slowdown and chime. CP native navigation is a separate mutually exclusive plugin.",
+      "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/navassist-2.4.6.tar.gz",
+      "sha256": "dbc1b282ef332c83101963328fc325c0ec7372d2d158e0bb581fbfe584f3b304",
       "platform": null,
       "default": false
     },
@@ -365,6 +391,19 @@
       "description": "Turns on the car's own Traffic Light and Stop Sign Control (TLSSC) between two speeds you set, like t2can: it re-sends the car's UI_autopilotControl (0x3FD mux 0) with bits 38/39 set while cruise is on. The car stops only while the stock ACC drives; Tesla Dynamic ACC 1.1+ hands longitudinal to the stock ACC when the car shows a red/yellow light or a stop line. Needs the vehicle-bus harness. Unverified on this car: whether TLSSC acts while SP steers.",
       "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/tesla_tlssc-1.0.0.tar.gz",
       "sha256": "cfa9774f3c1aace2985afb7eb1e15a439deaf8dff806b97b871475eadbed1af8",
+      "platform": null,
+      "default": false
+    },
+    {
+      "id": "tesnav",
+      "name": "TesNav Navigation",
+      "version": "0.1.2",
+      "api": 1,
+      "category": "navigation",
+      "author": "juyun86",
+      "description": "TesNav phone guidance and recommended-lane display, with optional turn slowdown. No automatic lane changes or steering. Controlled private LAN only.",
+      "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/tesnav-0.1.2.tar.gz",
+      "sha256": "83a145bb674437f7c9c40d1d10803f8490a572c7a89e67698e5706caea7ea622",
       "platform": null,
       "default": false
     },
