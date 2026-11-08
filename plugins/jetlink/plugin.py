@@ -45,10 +45,18 @@ def _onroad(started, params, CP) -> bool:
   return started and run_processes(params, CP)
 
 
+def _owner(started, params, CP) -> bool:
+  """The USB owner provisions while parked as well as holding the link onroad."""
+  return run_processes(params, CP)
+
+
+PROCESS_GATES = {"jetlinkd": _owner, "jetlink_modeld": _onroad, "jetlink_peer": _onroad}
+
+
 class Jetlink(Plugin):
   """Owns role:perception.model. Its modeld runs the local model and adopts phone frames when they arrive."""
 
   @classmethod
   def processes(cls) -> list:
     from openpilot.system.manager.process import PythonProcess
-    return [PythonProcess(name, f"{__package__}.{module}", _onroad) for name, module in PROCESSES]
+    return [PythonProcess(name, f"{__package__}.{module}", PROCESS_GATES[name]) for name, module in PROCESSES]

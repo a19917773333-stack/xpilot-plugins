@@ -1,12 +1,23 @@
 """Manifest, claims and process gating: what the host needs to run this plugin at all."""
 import json
 from pathlib import Path
+import sys
+import types
 
 import pytest
 
 from .. import plugin as manifest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def fake_python_process(monkeypatch):
+  """Keep process-list tests independent of the compiled msgq module."""
+  from types import SimpleNamespace
+
+  module = types.ModuleType("openpilot.system.manager.process")
+  module.PythonProcess = lambda name, path, should_run: SimpleNamespace(name=name, module=path, should_run=should_run)
+  monkeypatch.setitem(sys.modules, "openpilot.system.manager.process", module)
 
 
 def spec() -> dict:
@@ -28,7 +39,8 @@ def test_every_param_the_code_writes_is_declared():
   assert declared <= params, declared - params
 
 
-def test_processes_are_one_python_process_each():
+def test_processes_are_one_python_process_each(monkeypatch):
+  fake_python_process(monkeypatch)
   processes = manifest.Jetlink.processes()
   assert [process.name for process in processes] == [name for name, _ in manifest.PROCESSES]
   assert all(process.module.startswith("jetlink.") for process in processes)
@@ -49,3 +61,20 @@ def test_off_or_uninstalled_runs_nothing():
   assert manifest.mode(Params(2)) == "ios"
   assert not manifest._onroad(False, Params(1), None)
   assert manifest._onroad(True, Params(0), None) is False
+
+
+def test_link_owner_stays_up_offroad_but_inference_processes_do_not(monkeypatch):
+  """The USB owner provisions while parked; modeld and the peer wait for a drive."""
+  monkeypatch.setattr(manifest, "available", lambda: True)
+  fake_python_process(monkeypatch)
+
+  class Params:
+    def get(self, _key):
+      return 1
+
+  processes = {proc.name: proc for proc in manifest.Jetlink.processes()}
+  params = Params()
+  assert processes["jetlinkd"].should_run(False, params, None)
+  assert not processes["jetlink_modeld"].should_run(False, params, None)
+  assert not processes["jetlink_peer"].should_run(False, params, None)
+  assert all(proc.should_run(True, params, None) for proc in processes.values())

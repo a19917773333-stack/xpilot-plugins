@@ -5,9 +5,12 @@ runs this plugin's three processes instead:
 
 | Process | What it does |
 |---|---|
-| `jetlinkd` | holds the USB gadget for the drive and runs provisioning (jetlink's own owner) |
+| `jetlinkd` | runs whenever the link is enabled, including offroad provisioning, and holds the USB gadget |
 | `jetlink_modeld` | openpilot's modeld with a model-source mailbox attached (`run_with_model_source`) |
 | `jetlink_peer` | warps the camera frame modeld published, sends it over the link, writes the phone's output back |
+
+`jetlinkd` runs while parked so the phone can connect and prepare its model. The two inference processes wait for a
+drive and stop when parked.
 
 `jetlink_modeld` always runs the local model. A phone frame is adopted per frame, only when it lands inside
 `openpilot/tesla/model_source.py`'s 60 ms deadline and passes `decode.admit`; otherwise the local frame drives.
