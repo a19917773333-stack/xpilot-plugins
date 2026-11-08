@@ -27,6 +27,8 @@ That is why a link that is off, missing, late or foreign is a normal drive on xp
   package dynamically, but Python subprocesses do not inherit it through normal `PYTHONPATH`.
 - `XpilotJetlinkPointers`, `XpilotJetlinkProgress` and `XpilotJetlinkSpec` are JSON params. The adapter also
   decodes the Python text written by 1.0.8, so upgrading keeps the already known model pointer.
+- A ready `XpilotJetlinkSpec` needs the model's `sha256` and `nbytes`. The `onnx_path` is optional: the peer asks
+  the phone for that already-built engine by identity instead of skipping preparation when the comma path is gone.
 - The adapter points Jetlink's LFS lookup at `/dev/shm/jetlink/lfs/.lfsconfig`, where `hf-mirror.com` is the
   first endpoint. This keeps the host checkout clean and avoids the blocked canonical HuggingFace host on
   networks where the mirror is reachable; Jetlink's built-in LFS endpoints remain as fallbacks.

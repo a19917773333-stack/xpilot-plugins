@@ -15,6 +15,7 @@ SPEC_PARAM = "XpilotJetlinkSpec"
 STATUS_PARAM = "XpilotJetlinkStatus"
 CONNECT_TIMEOUT = 30.0
 FRAME_TIMEOUT = 0.05
+ENGINE_RETRY = 10.0
 
 
 def address(buf) -> int:
@@ -41,15 +42,21 @@ def open_client(log):
   return Link(log, name="xpilot_peer").open(deadline=time.monotonic() + CONNECT_TIMEOUT)
 
 
-def prepare_engine(client, value, log) -> None:
-  """Make sure the phone has this model built; only a spec jetlink wrote says which one."""
+def prepare_engine(client, value, log) -> bool:
+  """Load the model named by the ready spec; the phone may already hold its engine."""
   import json
   try:
     spec = json.loads(value) if isinstance(value, str) else (value or {})
-    if spec.get("sha256") and spec.get("onnx_path"):
-      client.ensure_engine(spec["sha256"], int(spec["nbytes"]), spec["onnx_path"])
-  except Exception:
-    log.warning("jetlink: could not prepare the phone's engine; the link decides")
+    sha256, nbytes = spec.get("sha256"), spec.get("nbytes")
+    if not sha256 or not nbytes:
+      raise ValueError("the spec has no model sha256/nbytes")
+    # A ready spec does not carry a comma-local ONNX path. Pass None so the phone
+    # reuses its built engine instead of the peer skipping preparation entirely.
+    client.ensure_engine(str(sha256), int(nbytes), spec.get("onnx_path"))
+    return True
+  except Exception as error:
+    log.warning("jetlink: could not prepare the phone's engine: %s", error)
+    return False
 
 
 def frame_geometry(main_stream, extra_stream, configured):
@@ -112,7 +119,13 @@ def main() -> None:
     raise
 
   link = open_client(cloudlog)
-  prepare_engine(link, params.get(SPEC_PARAM), cloudlog)
+  if not prepare_engine(link, params.get(SPEC_PARAM), cloudlog):
+    params.put(STATUS_PARAM, "waiting for phone engine", block=False)
+    while True:
+      _time.sleep(ENGINE_RETRY)
+      if prepare_engine(link, params.get(SPEC_PARAM), cloudlog):
+        break
+  params.put(STATUS_PARAM, "phone engine ready", block=False)
   epoch = 0
   served = 0
   last_note = 0.0
