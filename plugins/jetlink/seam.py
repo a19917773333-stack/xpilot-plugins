@@ -11,15 +11,15 @@ from pathlib import Path
 
 from .plugin import JETLINK_RUNTIME_DIR
 
-API = 3  # the jetlink.openpilot API this adapter is written to
+API = 4  # the jetlink.openpilot API this adapter is written to
 MODES = ("off", "usb", "ios")
 # the params jetlink reads and writes. The host model manager's active bundle and catalog stay in params.cc's
 # store, so params_dir links them beside this plugin's own params.
 KEYS = {"link": "XpilotJetlinkMode", "offroad": "IsOffroad", "progress": "XpilotJetlinkProgress",
-        "spec": "XpilotJetlinkSpec", "pointers": "XpilotJetlinkPointers",
-        "big_model": "ModelManager_ActiveBundleChestnut",
-        "catalog": "ModelManager_ModelsCache_Chestnut", "charge_phone": None}
-HOST_KEYS = frozenset({KEYS["offroad"], KEYS["big_model"], KEYS["catalog"]})
+        "spec": "XpilotJetlinkSpec", "big_model": "ModelManager_ActiveBundleChestnut",
+        "catalog": "ModelManager_ModelsCache_Chestnut", "charge_phone": None,
+        "select": "ModelManager_DownloadRef", "pointers": "XpilotJetlinkPointers"}
+HOST_KEYS = frozenset({KEYS["offroad"], KEYS["big_model"], KEYS["catalog"], KEYS["select"]})
 JSON_KEYS = frozenset({KEYS["progress"], KEYS["spec"], KEYS["pointers"]})
 # comma's chestnut, running and in its ROM: the USB-C port hosts one and is never held as a jetlink device
 CHESTNUT_IDS = frozenset({(0xADD1, 0x0001), (0xADD1, 0x0002), (0x3801, 0x0001),
@@ -77,15 +77,6 @@ def keys():
   return Keys(**KEYS)
 
 
-def _catalog_selector() -> int:
-  """The selector version this host can run; zero when it has no model manager."""
-  try:
-    from openpilot.sunnypilot.models.helpers import REQUIRED_JSON_VERSION
-    return int(REQUIRED_JSON_VERSION)
-  except (ImportError, TypeError, ValueError):
-    return 0
-
-
 def decode_param(key: str, value):
   """Decode JSON params saved by 1.0.8 as Python ``str(dict)`` text."""
   if key not in JSON_KEYS or not isinstance(value, str):
@@ -141,9 +132,10 @@ def lfs_config_dir() -> Path:
 
 def owner_pythonpath(basedir: Path) -> str:
   """Paths the provisioning child needs, including the runtime that survives checkout updates."""
-  paths = [str(BOOTSTRAP_DIR), str(basedir)]
+  paths = [str(BOOTSTRAP_DIR)]
   if JETLINK_RUNTIME_DIR.is_dir():
     paths.append(str(JETLINK_RUNTIME_DIR))
+  paths.append(str(basedir))
   paths.extend(path for path in os.environ.get("PYTHONPATH", "").split(os.pathsep) if path)
   return os.pathsep.join(dict.fromkeys(paths))
 
@@ -179,7 +171,6 @@ class Adapter:
     self.keys = keys()
     self.log = cloudlog
     self.basedir = lfs_config_dir()
-    self.catalog_selector = _catalog_selector()
     self._stores: dict[Path, object] = {}
     self._geometry: tuple[int, int, int, int] | None = None
 

@@ -69,10 +69,18 @@ def open_client(log):
   return link, client
 
 
-def introduce(link, client, log) -> dict:
-  """Start the session and pass its sleep policy back to the owner."""
-  hello = client.hello(timeout=HELLO_TIMEOUT)
+def models_for(op):
+  from jetlink.openpilot.models import Models
+  return Models(op)
+
+
+def introduce(link, client, log, op) -> dict:
+  """Start the session with our pick and pass the phone's answer to the owner."""
+  models = models_for(op)
+  asked = models.hello_pick()
+  hello = models.heard(client.hello(timeout=HELLO_TIMEOUT, pick=asked), asked)
   link.note_server(hello)
+  models.adopt()
   log.warning("jetlink: phone %s connected (engine %s)",
               hello.get("device") or "peer", hello.get("engine_state") or "unknown")
   return hello
@@ -157,10 +165,11 @@ def main() -> None:
   from .seam import adapter
 
   params = ParamsView(Params())
+  parts = adapter()
   link = None
   try:
     link, client = open_client(cloudlog)
-    introduce(link, client, cloudlog)
+    introduce(link, client, cloudlog, parts)
     params.put(STATUS_PARAM, "phone connected", block=False)
 
     prepared = prepare_engine(client, params.get(SPEC_PARAM), cloudlog)
@@ -177,7 +186,6 @@ def main() -> None:
     box = wait_for_mailbox(params, client=client)
 
     from jetlink.openpilot.warp import Warp, Warps
-    parts = adapter()
     warps = Warps(parts)
 
     # the stream enum moved out of msgq and ROAD was renamed NARROW_ROAD on newer trees

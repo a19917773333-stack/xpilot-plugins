@@ -33,6 +33,7 @@ def test_adapter_does_not_offer_a_chestnut_only_warp(monkeypatch, tmp_path):
   assert adapter.camera() == (0, 0, 512, 256)
   assert not adapter.warp_path(1928, 1208, 512, 256).exists()
 
+
 def test_frame_size_uses_camerad_nv12_layout(monkeypatch):
   """The frame-size helper lives beside camerad, not in common camera geometry."""
   module = types.ModuleType("openpilot.system.camerad.cameras.nv12_info")
@@ -40,6 +41,7 @@ def test_frame_size_uses_camerad_nv12_layout(monkeypatch):
   monkeypatch.setitem(sys.modules, module.__name__, module)
 
   assert seam._frame_size(1928, 1208) == 123456
+
 
 HERE = Path(__file__).resolve().parents[2]  # the plugins directory pytest put on sys.path, which holds this package
 
@@ -57,6 +59,7 @@ def test_params_dir_exposes_plugin_and_host_values(monkeypatch, tmp_path):
   catalog = {"bundles": [{"ref": "a" * 40, "display_name": "BMRLNAP Model v6"}]}
   (host / "ModelManager_ActiveBundleChestnut").write_text(json.dumps(active))
   (host / "ModelManager_ModelsCache_Chestnut").write_text(json.dumps(catalog))
+  (host / "ModelManager_DownloadRef").write_text("a" * 40)
   (plugin / "ModelManager_ActiveBundleChestnut").write_text(json.dumps({"ref": "b" * 40}))
   monkeypatch.setattr(seam, "OWNER_PARAMS_DIR", owner)
   monkeypatch.setattr(seam, "_host_params_dir", lambda: host)
@@ -69,6 +72,7 @@ def test_params_dir_exposes_plugin_and_host_values(monkeypatch, tmp_path):
   assert (owner / "IsOffroad").read_text() == "0"
   assert json.loads((owner / "ModelManager_ActiveBundleChestnut").read_text()) == active
   assert json.loads((owner / "ModelManager_ModelsCache_Chestnut").read_text()) == catalog
+  assert (owner / "ModelManager_DownloadRef").read_text() == "a" * 40
   assert (owner / "XpilotJetlinkMode").read_text() == "1"
 
   replacement = plugin / ".replacement"
@@ -76,10 +80,12 @@ def test_params_dir_exposes_plugin_and_host_values(monkeypatch, tmp_path):
   replacement.replace(plugin / "XpilotJetlinkMode")
   assert (owner / "XpilotJetlinkMode").read_text() == "2"
 
+
 def test_keys_follow_the_host_model_manager():
   """Jetlink runs the big model selected in xpilot, not its own built-in default."""
   assert seam.KEYS["big_model"] == "ModelManager_ActiveBundleChestnut"
   assert seam.KEYS["catalog"] == "ModelManager_ModelsCache_Chestnut"
+  assert seam.KEYS["select"] == "ModelManager_DownloadRef"
 
 
 def test_param_sources_use_the_host_model_manager_store(tmp_path):
@@ -91,21 +97,12 @@ def test_param_sources_use_the_host_model_manager_store(tmp_path):
           == host / "ModelManager_ActiveBundleChestnut")
   assert (seam._param_source(host, plugin, "ModelManager_ModelsCache_Chestnut")
           == host / "ModelManager_ModelsCache_Chestnut")
+  assert seam._param_source(host, plugin, "ModelManager_DownloadRef") == host / "ModelManager_DownloadRef"
   assert seam._param_source(host, plugin, "XpilotJetlinkMode") == plugin / "XpilotJetlinkMode"
 
 
-def test_catalog_selector_comes_from_the_host_model_manager(monkeypatch):
-  """A catalog entry is usable only at the selector version the host supports."""
-  module = types.ModuleType("openpilot.sunnypilot.models.helpers")
-  module.REQUIRED_JSON_VERSION = 21
-  monkeypatch.setitem(sys.modules, module.__name__, module)
-
-  assert seam._catalog_selector() == 21
-
-
-
-def test_owner_pythonpath_includes_persistent_runtime(monkeypatch, tmp_path):
-  """Provisioning starts from BASEDIR but must still import the saved jetlink runtime."""
+def test_owner_pythonpath_prefers_the_persistent_runtime(monkeypatch, tmp_path):
+  """Provisioning starts from BASEDIR but must import v0.9.0 before any checkout package."""
   runtime = tmp_path / "runtime"
   runtime.mkdir()
   basedir = tmp_path / "openpilot"
@@ -114,7 +111,7 @@ def test_owner_pythonpath_includes_persistent_runtime(monkeypatch, tmp_path):
   monkeypatch.setenv("PYTHONPATH", os.pathsep.join(existing))
 
   paths = seam.owner_pythonpath(basedir).split(os.pathsep)
-  assert paths == [str(seam.BOOTSTRAP_DIR), str(basedir), str(runtime), *existing]
+  assert paths == [str(seam.BOOTSTRAP_DIR), str(runtime), str(basedir), *existing]
 
 
 def test_worker_bootstrap_exposes_store_plugin_namespace(monkeypatch, tmp_path):

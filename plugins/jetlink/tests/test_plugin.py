@@ -1,10 +1,9 @@
-"""Manifest, claims and process gating: what the host needs to run this plugin at all."""
+"""Manifest, claims, process gating and readiness: what the host needs to run this plugin."""
+import importlib
 import json
 from pathlib import Path
 import sys
 import types
-
-import pytest
 
 from .. import plugin as manifest
 from .. import ready as readiness
@@ -53,6 +52,7 @@ def test_processes_are_one_python_process_each(monkeypatch):
   processes = manifest.Jetlink.processes()
   assert [process.name for process in processes] == [name for name, _ in manifest.PROCESSES]
   assert all(process.module.startswith("jetlink.") for process in processes)
+
 
 def test_prepare_install_checks_the_device_warp(monkeypatch):
   """The store probe must reject a missing or unreadable local warp before activation."""
@@ -114,29 +114,102 @@ def test_off_or_uninstalled_runs_nothing():
   assert manifest._onroad(True, Params(0), None) is False
 
 
-def test_available_uses_persistent_runtime_without_checkout_link(monkeypatch, tmp_path):
-  """A reboot removing /data/openpilot/jetlink must not hide the saved runtime package."""
+def test_available_requires_the_v090_runtime(monkeypatch, tmp_path):
+  """A runtime of another version must not be used by an adapter written for v0.9.0."""
   runtime = tmp_path / "runtime"
   package = runtime / "jetlink"
   package.mkdir(parents=True)
-  (package / "__init__.py").write_text("")
+  (package / "__init__.py").write_text('__version__ = "0.9.0"')
   monkeypatch.setattr(manifest, "JETLINK_RUNTIME_DIR", runtime)
   monkeypatch.setattr(sys, "path", [path for path in sys.path if path != str(runtime)])
+  # pytest imports this plugin package as `jetlink`; drop that cached package
+  # before the runtime check so the path under test can supply it.
 
   class NoCheckoutLink:
     def find_spec(self, name, path=None, target=None):
       if name == "jetlink" and str(runtime) not in sys.path:
         raise ModuleNotFoundError("checkout link is gone", name=name)
       return None
-
+  monkeypatch.delitem(sys.modules, "jetlink", raising=False)
   monkeypatch.setattr(sys, "meta_path", [NoCheckoutLink(), *sys.meta_path])
   assert manifest.available()
   assert sys.path[0] == str(runtime)
+  monkeypatch.setattr(importlib, "import_module", lambda name: types.SimpleNamespace(__version__="0.8.13"))
+  assert manifest.available() is False
+
+
+class Pointer:
+  def __init__(self, oid, size):
+    self.oid = oid
+    self.size = size
+
+
+class Index:
+  def __init__(self, mapping, default=None):
+    self.mapping = mapping
+    self.default = default
+    self.models = [types.SimpleNamespace(ref=ref) for ref in mapping]
+
+  def pointer(self, ref):
+    return self.mapping.get(ref)
+
+
+def ready_params(ref=None, pointer_oid="a" * 64):
+  spec = {"ready": True, "sha256": "a" * 64, "nbytes": 123}
+  pointers = {ref: {"oid": pointer_oid, "size": 123}} if ref and pointer_oid else {}
+  return {"spec": spec, "active": {"ref": ref} if ref else {}, "pointers": pointers}
+
+
+def test_peer_ready_uses_the_new_index_and_not_a_matching_legacy_pointer(monkeypatch):
+  """Once v0.9.0 has an index, a missing ref cannot be admitted by old pointers."""
+  params = ready_params(ref="a" * 40)
+  index = Index({"b" * 40: Pointer("a" * 64, 123)}, default="b" * 40)
+  monkeypatch.setattr(readiness, "_load_index", lambda: index)
+
+  class Params:
+    def get(self, key):
+      key = {readiness.SPEC_PARAM: "spec", readiness.BIG_MODEL_PARAM: "active",
+             readiness.POINTERS_PARAM: "pointers"}[key]
+      return params[key]
+
+  assert readiness.peer_ready(Params()) is False
+
+
+def test_peer_ready_falls_back_to_pointer_only_before_the_index_exists(monkeypatch):
+  params = ready_params(ref="a" * 40)
+  monkeypatch.setattr(readiness, "_load_index", lambda: None)
+
+  class Params:
+    def get(self, key):
+      key = {readiness.SPEC_PARAM: "spec", readiness.BIG_MODEL_PARAM: "active",
+             readiness.POINTERS_PARAM: "pointers"}[key]
+      return params[key]
+
+  assert readiness.peer_ready(Params()) is True
+  params["pointers"]["a" * 40]["oid"] = "b" * 64
+  assert readiness.peer_ready(Params()) is False
+
+
+def test_peer_ready_compares_the_default_model_when_no_ref_is_picked(monkeypatch):
+  params = ready_params()
+  index = Index({"c" * 40: Pointer("a" * 64, 123)}, default="c" * 40)
+  monkeypatch.setattr(readiness, "_load_index", lambda: index)
+
+  class Params:
+    def get(self, key):
+      key = {readiness.SPEC_PARAM: "spec", readiness.BIG_MODEL_PARAM: "active",
+             readiness.POINTERS_PARAM: "pointers"}[key]
+      return params[key]
+
+  assert readiness.peer_ready(Params()) is True
+  index.mapping["c" * 40] = Pointer("b" * 64, 123)
+  assert readiness.peer_ready(Params()) is False
 
 
 def test_peer_joins_offroad_only_when_a_model_is_ready(monkeypatch):
   """The parked peer completes the phone handshake, but not while it would block provisioning."""
   monkeypatch.setattr(manifest, "available", lambda: True)
+  monkeypatch.setattr(readiness, "_load_index", lambda: None)
   fake_python_process(monkeypatch)
 
   class Params:

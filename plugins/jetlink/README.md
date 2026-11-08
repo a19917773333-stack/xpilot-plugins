@@ -10,8 +10,8 @@ runs this plugin's three processes instead:
 | `jetlink_peer` | keeps the phone protocol connected offroad, then warps and sends modeld's camera frames onroad |
 
 `jetlinkd` runs while parked so the phone can connect and prepare its model. Once the ready spec names a phone
-engine, `jetlink_peer` also runs offroad: it sends `hello`, passes the phone's `sleep_after` policy back to the
-owner, loads the named engine, and keeps its USB lease open without sending unsupported pings.
+engine, `jetlink_peer` also runs offroad: it sends `hello` with the host's current model pick, keeps the phone's
+returned pick for the owner, loads the named engine, and holds its USB lease without sending unsupported pings.
 `jetlink_modeld` still waits for a drive; when the drive mailbox appears, the already-open peer session
 switches to camera frames.
 
@@ -33,24 +33,25 @@ That is why a link that is off, missing, late or foreign is a normal drive on xp
 
 ## Requirements
 
-- The `jetlink` python package (the `jetlink_repo` checkout the phone apps pair with) on `PYTHONPATH`. Without it
-  the plugin still loads and starts nothing, and the host's own modeld keeps running.
-- On this C3 deployment the API 3 runtime is kept at `/data/jetlink-runtime-491cf1ef`; the plugin adds that
-  directory to both the manager process and provisioning child environment. The old `/data/openpilot/jetlink`
-  checkout link is no longer a persistent storage location because host updates can remove it.
+- The `jetlink` v0.9.0 python package on `PYTHONPATH`. Without it the plugin still loads and starts nothing, and
+  the host's own modeld keeps running. `available()` validates the runtime `__version__`, not just importability.
+- On this C3 deployment the API 4 runtime is kept at `/data/jetlink-runtime-v0.9.0`; the plugin adds that
+  directory to the manager and before the checkout in provisioning children, so a stale API 3 package cannot win
+  after a host update.
 - `_boot/xpilot_ext.py` exposes installed store plugins to Jetlink's provisioning child. The manager creates that
   package dynamically, but Python subprocesses do not inherit it through normal `PYTHONPATH`.
-- `XpilotJetlinkPointers`, `XpilotJetlinkProgress` and `XpilotJetlinkSpec` are JSON params. The adapter also
-  decodes the Python text written by 1.0.8, so upgrading keeps the already known model pointer.
-- The model comes from xpilot's model manager: Jetlink follows `ModelManager_ActiveBundleChestnut` and reads
-  `ModelManager_ModelsCache_Chestnut` at the host's `REQUIRED_JSON_VERSION`. Selecting `BMRLNAP Model v6` in
-  the host therefore provisions and runs that model on the phone instead of Jetlink's built-in default.
+- `XpilotJetlinkProgress`, `XpilotJetlinkSpec` and the legacy `XpilotJetlinkPointers` are JSON params. v0.9.0
+  resolves models from `MODELS_DIR/jetlink/index.json`; old pointers are used only until the first index is fetched.
+- The model comes from xpilot's model manager: Jetlink follows `ModelManager_ActiveBundleChestnut` and maps a pick
+  made on the phone back through `ModelManager_DownloadRef`. It keeps its own hourly model index in
+  `MODELS_DIR/jetlink/index.json`. Selecting `BMRLNAP Model v6` in the host therefore provisions and runs that
+  model on the phone instead of Jetlink's built-in default.
 - A ready `XpilotJetlinkSpec` needs the model's `sha256` and `nbytes`. The `onnx_path` is optional: the peer asks
   the phone for that already-built engine by identity instead of skipping preparation when the comma path is gone.
 - Offroad peer startup is gated on that ready spec. This avoids holding the owner's loan while the model still has to
-  be provisioned. The spec must also resolve to the host's selected model; an old ready spec does not take the USB
-  lease after the user switches models. If the phone reports that the engine is missing, the peer marks the stale spec
-  unready and exits so `jetlinkd` can provision it again.
+  be provisioned. The spec must also resolve through the new model index to the host's selected model; an old ready
+  spec does not take the USB lease after the user switches models. If the phone reports that the engine is missing,
+  the peer marks the stale spec unready and exits so `jetlinkd` can provision it again.
 - The adapter points Jetlink's LFS lookup at `/dev/shm/jetlink/lfs/.lfsconfig`, where `hf-mirror.com` is the
   first endpoint. This keeps the host checkout clean and avoids the blocked canonical HuggingFace host on
   networks where the mirror is reachable; Jetlink's built-in LFS endpoints remain as fallbacks.
@@ -73,7 +74,7 @@ That is why a link that is off, missing, late or foreign is a normal drive on xp
 ## Tests
 
     cd <xpilot-plugins>
-    PYTHONPATH=<xpilot>:<xpilot>/opendbc_repo python3 -m pytest -q plugins/jetlink/tests
+    PYTHONPATH=<xpilot>:<xpilot>/opendbc_repo:<jetlink-v0.9.0> python3 -m pytest -q plugins/jetlink/tests
 
 `tests/test_mailbox.py` publishes a frame through `ModelSource`, reads it with the peer, writes the reply back and
-asserts modeld adopts it — and that a stale, foreign-session or malformed reply is refused.
+asserts modeld adopts it, and that a stale, foreign-session or malformed reply is refused.

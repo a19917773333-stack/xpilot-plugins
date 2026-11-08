@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from .. import peer as peer_module
 from ..peer import camera_frame_size, clear_ready, frame_geometry, introduce, prepare_engine, wait_for_mailbox
 from ..peer import FRAME_TIMEOUT, WARMUP_TIMEOUT, infer_frame
 
@@ -63,14 +64,37 @@ def test_busy_phone_queue_skips_the_frame_without_touching_the_link():
   assert client.ended is False
 
 
-def test_introduce_hands_the_phone_hello_to_the_owner():
-  """The owner learns sleep_after from the peer, so it can keep an always-on phone linked."""
+def test_introduce_hands_the_phone_hello_to_the_owner(monkeypatch):
+  """The hello carries the host's pick, and the answer reaches the owner unchanged."""
+
+  asked = {"ref": "a" * 40, "sha256": "b" * 64, "nbytes": 123, "at": 1.0}
+  answer = {"device": "phone", "sleep_after": 0, "engine_state": "ready", "pick": None}
+
+  class Models:
+    adopted = False
+
+    def __init__(self, op):
+      assert op == "adapter"
+
+    @staticmethod
+    def hello_pick():
+      return asked
+
+    @staticmethod
+    def heard(hello, pick):
+      assert hello == answer
+      assert pick == asked
+      return {**hello, "heard": True}
+
+    def adopt(self):
+      type(self).adopted = True
 
   class Client:
     @staticmethod
-    def hello(timeout):
+    def hello(timeout, pick):
       assert timeout > 0
-      return {"device": "phone", "sleep_after": 0, "engine_state": "ready"}
+      assert pick == asked
+      return answer
 
   class Link:
     def __init__(self):
@@ -84,9 +108,11 @@ def test_introduce_hands_the_phone_hello_to_the_owner():
     def warning(*args):
       pass
 
+  monkeypatch.setattr(peer_module, "models_for", lambda op: Models(op))
   link = Link()
-  hello = introduce(link, Client(), Log())
-  assert link.hello == hello == {"device": "phone", "sleep_after": 0, "engine_state": "ready"}
+  hello = introduce(link, Client(), Log(), "adapter")
+  assert link.hello == hello == {**answer, "heard": True}
+  assert Models.adopted
 
 
 def test_wait_for_mailbox_holds_the_idle_lease_until_modeld_starts(tmp_path):
@@ -166,6 +192,7 @@ def test_frame_geometry_rejects_disagreeing_road_streams():
 
   with pytest.raises(RuntimeError, match="road streams disagree"):
     frame_geometry(main, extra, (1928, 1208, 512, 256))
+
 
 def test_warp_buffer_size_uses_the_camera_not_the_model_input():
   class Face:

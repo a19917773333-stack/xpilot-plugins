@@ -19,7 +19,8 @@ from .ready import peer_ready
 
 MODES = ("off", "usb", "ios")
 MODE_PARAM = "XpilotJetlinkMode"
-JETLINK_RUNTIME_DIR = Path("/data/jetlink-runtime-491cf1ef")
+JETLINK_RUNTIME_VERSION = "0.9.0"
+JETLINK_RUNTIME_DIR = Path("/data/jetlink-runtime-v0.9.0")
 # process name -> module inside this package, in the order manager starts them
 PROCESSES = (("jetlinkd", "seam"), ("jetlink_modeld", "runner"), ("jetlink_peer", "peer"))
 
@@ -50,9 +51,9 @@ def mode(params) -> str:
 def available() -> bool:
   """Is the jetlink package importable? Without it none of these processes can run."""
   ensure_runtime()
-  import importlib.util
+  import importlib
   try:
-    return importlib.util.find_spec("jetlink") is not None
+    return importlib.import_module("jetlink").__version__ == JETLINK_RUNTIME_VERSION
   except Exception:
     return False
 
