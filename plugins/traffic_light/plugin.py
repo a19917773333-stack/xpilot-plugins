@@ -1,4 +1,4 @@
-"""Traffic light plugin: reads Tesla's own traffic-control perception (APP_trafficControl), runs
+"""Traffic light plugin: reads Tesla traffic-control perception (legacy DAS_road or APP_trafficControl), runs
 trafficcontrold, and lets plannerd stop for red lights through the final plan arbitrator (tighten only).
 Params: TeslaTrafficSignalControlEnabled, TeslaTrafficStopReference, TeslaTrafficControlMaxSpeed."""
 import time

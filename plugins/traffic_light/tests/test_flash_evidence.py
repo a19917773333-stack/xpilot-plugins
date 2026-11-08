@@ -59,22 +59,33 @@ def test_explicit_dbc_off_code_can_confirm_flash_without_becoming_a_red_command(
   assert decision.light_state == 4
 
 
-@pytest.mark.parametrize("dlc", [6, 8])
-@pytest.mark.parametrize("dark_color", [0, 4])
-def test_raw_can_decode_distinguishes_none_from_off_before_flash_control(dlc, dark_color):
+@pytest.mark.parametrize(("dbc", "message", "dlc", "dark_color"), [
+  ("tesla_modely_hw4_perception", "APP_trafficControl", 8, 0),
+  ("tesla_modely_hw4_perception", "APP_trafficControl", 8, 4),
+  ("tesla_model3_party_2bit", "DAS_road", 6, 0),
+])
+def test_raw_can_decode_distinguishes_none_from_off_before_flash_control(dbc, message, dlc, dark_color):
   c = controller()
   observer = TeslaTrafficControlObserver()
-  packer = CANPacker("tesla_modely_hw4_perception")
+  packer = CANPacker(dbc)
   for t, color, distance in FLASH:
     raw_color = dark_color if color == 4 else color
-    address, data, bus = packer.make_can_msg("APP_trafficControl", 2, {
-      "APP_tcControlType": 3,
-      "APP_tcControlSource": 3,
-      "APP_tcControlDistance": distance,
-      "APP_tcControlLightState": raw_color,
-    })
+    if message == "APP_trafficControl":
+      values = {
+        "APP_tcControlType": 3,
+        "APP_tcControlSource": 3,
+        "APP_tcControlDistance": distance,
+        "APP_tcControlLightState": raw_color,
+      }
+    else:
+      values = {
+        "DAS_stopLineDist": distance,
+        "DAS_trafficLightColor": raw_color,
+      }
+    address, data, bus = packer.make_can_msg(message, 2, values)
+    assert len(data) == dlc
     now_ns = round(t * 1e9)
-    observer.update([(now_ns, [(address, data[:dlc], bus)])], now_ns)
+    observer.update([(now_ns, [(address, data, bus)])], now_ns)
     raw = observer.snapshot(now_ns)
     assert raw.available
     assert raw.light_state == raw_color

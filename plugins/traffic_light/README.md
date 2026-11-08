@@ -1,7 +1,9 @@
-# Traffic Light 1.1.0
+# Traffic Light 1.1.1
 
 读取 AP-PARTY bus 2 的 0x25D，不发送 CAN。card 每 50 ms 最多发送一条 `traffic.observation`
 （claim `msg:traffic.observation`，TTL 750 ms），包含原始帧时间、bus、DLC、地址及 `rawPayload` 十六进制字符串。
+同一个 0x25D 地址按 DLC 严格区分协议：8 字节使用 HW4 `APP_trafficControl`，6 字节使用旧版
+`DAS_road`（`tesla_model3_party_2bit`）。DLC 是协议选择条件，6 字节帧不会再被截短的 8 字节 HW4 解析器误读。
 trafficcontrold 通过 `PluginMsgs.latest("traffic.observation", "traffic_light")` 接收，继续校验原始帧年龄，
 在 modelV2 更新时发送 `traffic.target`（claim `msg:traffic.target`，TTL 350 ms）。目标保留现有字段和 valid 标志，
 `TrafficRadarState` 仅用作本地构建数据的既有类型，不再发布同名 cereal 服务。

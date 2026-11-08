@@ -426,13 +426,13 @@
     {
       "id": "traffic_light",
       "name": "Traffic Light Control (Experimental)",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "api": 1,
       "category": "longitudinal_planning",
       "author": "xpilot",
       "description": "Stops for red lights seen by the car's own traffic-control perception. Only ever slows down.",
-      "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/traffic_light-1.1.0.tar.gz",
-      "sha256": "d9f20c4051c6ecf374e8fcb8a8516853f7aa656fe9ded3763d67e0c425446a70",
+      "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/traffic_light-1.1.1.tar.gz",
+      "sha256": "ef054d86b115da277a7b273f1838b9f3e6f7ee9fbf49f6842cf65a6f85874d22",
       "platform": null,
       "default": false
     },

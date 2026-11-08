@@ -16,6 +16,66 @@ def _frame(values, bus=2):
   return CANPacker("tesla_modely_hw4_perception").make_can_msg("APP_trafficControl", bus, values)
 
 
+def _legacy_frame(values, bus=2):
+  return CANPacker("tesla_model3_party_2bit").make_can_msg("DAS_road", bus, values)
+
+
+def test_observer_decodes_legacy_das_road_as_legacy_traffic_control():
+  observer = TeslaTrafficControlObserver()
+  address, data, _ = _legacy_frame({
+    "DAS_stopLineDist": 11,
+    "DAS_trafficLightColor": 1,
+  })
+  assert len(data) == 6
+
+  observer.update([(1_000_000_000, [(address, data, 2)])], 1_000_000_000)
+  observation = observer.snapshot(1_000_000_000)
+  assert observation.available
+  assert observation.valid_for_control
+  assert observation.source_bus == 2
+  assert observation.dlc == 6
+  assert observation.control_type == 3
+  assert observation.light_state == 1
+  assert observation.distance == 11
+  assert observation.raw_address == address
+  assert observation.raw_payload == data
+
+
+def test_observer_never_decodes_six_byte_das_road_with_app_schema():
+  observer = TeslaTrafficControlObserver()
+  address, data, _ = _frame({
+    "APP_tcControlType": 3,
+    "APP_tcControlDistance": 80,
+    "APP_tcControlLightState": 1,
+  })
+
+  observer.update([(1_000_000_000, [(address, data[:6], 2)])], 1_000_000_000)
+  observation = observer.snapshot(1_000_000_000)
+  assert observation.dlc == 6
+  assert observation.raw_payload == data[:6]
+  assert observation.distance != 80
+  # The legacy DAS_road interpretation controls the six-byte message.
+  assert observation.source_bus == 2
+  assert observation.control_type in (0, 3)
+
+
+def test_observer_decodes_logged_legacy_red_frame():
+  observer = TeslaTrafficControlObserver()
+  observer.update([(1_000_000_000, [(0x25D, bytes.fromhex("081c16015024"), 2)])], 1_000_000_000)
+  observation = observer.snapshot(1_000_000_000)
+  assert observation.available and observation.valid_for_control
+  assert (observation.light_state, observation.distance, observation.dlc) == (1, 11.0, 6)
+
+
+def test_observer_treats_logged_legacy_none_frame_as_no_target():
+  observer = TeslaTrafficControlObserver()
+  observer.update([(1_000_000_000, [(0x25D, bytes.fromhex("0000fe004000"), 2)])], 1_000_000_000)
+  observation = observer.snapshot(1_000_000_000)
+  assert observation.available
+  assert not observation.valid_for_control
+  assert (observation.light_state, observation.distance, observation.quality) == (0, 127.0, 1)
+
+
 def test_observer_accepts_party_traffic_light_and_rejects_veh_collision():
   observer = TeslaTrafficControlObserver()
   values = {
@@ -45,22 +105,21 @@ def test_observer_accepts_party_traffic_light_and_rejects_veh_collision():
 
 
 def test_raw_frame_diagnostics_survive_plugin_json_serialization():
-  address, data, _ = _frame({
-    "APP_tcControlType": 3,
-    "APP_tcControlDistance": 42,
-    "APP_tcControlLightState": 2,
+  address, data, _ = _legacy_frame({
+    "DAS_stopLineDist": 42,
+    "DAS_trafficLightColor": 2,
   })
   observer = TeslaTrafficControlObserver()
-  observer.update([(1_234_567_890, [(address, data[:6], 2)])], 1_234_567_890)
+  observer.update([(1_234_567_890, [(address, data, 2)])], 1_234_567_890)
   payload = traffic_control_payload(observer.snapshot(1_234_567_890))
   restored = TeslaTrafficControlObservation.from_message(SimpleNamespace(**json.loads(json.dumps(payload))))
   assert restored.raw_address == 0x25D
-  assert restored.raw_payload == data[:6]
+  assert restored.raw_payload == data
   assert restored.frame_mono_time == 1_234_567_890
   assert (restored.light_state, restored.control_type, restored.distance) == (2, 3, 42)
 
 
-def test_observer_treats_255_as_no_target_and_supports_shortened_dlc():
+def test_observer_treats_app_255_as_no_target():
   observer = TeslaTrafficControlObserver()
   address, data, _ = _frame({
     "APP_tcFeatureState": 0,
@@ -70,11 +129,11 @@ def test_observer_treats_255_as_no_target_and_supports_shortened_dlc():
     "APP_tcControlDistance": 255,
     "APP_tcControlLightState": 1,
   })
-  observer.update([(2_000_000_000, [(address, data[:6], 2)])], 2_000_000_000)
+  observer.update([(2_000_000_000, [(address, data, 2)])], 2_000_000_000)
   observation = observer.snapshot(2_000_000_000)
   assert observation.available
-  assert observation.dlc == 6
-  assert observation.raw_payload == data[:6]
+  assert observation.dlc == 8
+  assert observation.raw_payload == data
   assert observation.distance == 255
   assert not observation.valid_for_control
 
@@ -214,13 +273,13 @@ def test_observer_does_not_mix_valid_frame_metadata_with_short_tail_values():
 
 
 def test_observer_uses_latest_qualified_frame_regardless_of_batch_order():
-  red_address, red_data, red_bus = _frame({
-    "APP_tcControlType": 3, "APP_tcControlDistance": 80, "APP_tcControlLightState": 1,
+  red_address, red_data, red_bus = _legacy_frame({
+    "DAS_stopLineDist": 80, "DAS_trafficLightColor": 1,
   })
   green = _frame({"APP_tcControlType": 3, "APP_tcControlDistance": 20, "APP_tcControlLightState": 2})
   yellow = _frame({"APP_tcControlType": 3, "APP_tcControlDistance": 40, "APP_tcControlLightState": 3})
   packets = [
-    (3_000_000_000, [(red_address, red_data[:6], red_bus)]),
+    (3_000_000_000, [(red_address, red_data, red_bus)]),
     (2_800_000_000, [green]),
     (2_900_000_000, [yellow]),
     (3_100_000_000, [(green[0], green[1][:4], green[2])]),
@@ -238,9 +297,9 @@ def test_observer_uses_latest_qualified_frame_regardless_of_batch_order():
 
 def test_observer_same_timestamp_uses_last_qualified_frame_as_one_tuple():
   observer = TeslaTrafficControlObserver()
-  red = _frame({"APP_tcControlType": 3, "APP_tcControlDistance": 80, "APP_tcControlLightState": 1})
-  address, data, bus = _frame({"APP_tcControlType": 3, "APP_tcControlDistance": 20, "APP_tcControlLightState": 2})
-  observer.update([(2_000_000_000, [red, (address, data[:6], bus), (red[0], red[1][:4], red[2])])], 2_000_000_000)
+  red = _legacy_frame({"DAS_stopLineDist": 80, "DAS_trafficLightColor": 1})
+  address, data, bus = _legacy_frame({"DAS_stopLineDist": 20, "DAS_trafficLightColor": 2})
+  observer.update([(2_000_000_000, [red, (address, data, bus), (red[0], red[1][:4], red[2])])], 2_000_000_000)
   observation = observer.snapshot(2_000_000_000)
   assert (observation.light_state, observation.distance, observation.dlc) == (2, 20, 6)
 
@@ -278,3 +337,14 @@ def test_rejected_latest_decode_does_not_mask_a_valid_frame_in_the_same_batch(re
   result = observer.snapshot(2_100_000_000)
   assert result.available and result.valid_for_control
   assert (result.light_state, result.distance, result.frame_mono_time) == (1, 80, 2_000_000_000)
+
+
+def test_legacy_reserved_color_cannot_become_hw4_off():
+  observer = TeslaTrafficControlObserver()
+  address, data, _ = _legacy_frame({"DAS_stopLineDist": 80, "DAS_trafficLightColor": 4})
+  observer.update([(1_000_000_000, [(address, data, 2)])], 1_000_000_000)
+  observation = observer.snapshot(1_000_000_000)
+  assert observation.available
+  assert not observation.valid_for_control
+  assert observation.control_type == 0
+  assert observation.quality == 0

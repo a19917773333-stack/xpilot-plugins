@@ -6,12 +6,14 @@ from opendbc.can import CANParser
 
 
 DBC_NAME = "tesla_modely_hw4_perception"
+LEGACY_DBC_NAME = "tesla_model3_party_2bit"
 TRAFFIC_CONTROL_ADDRESS = 0x25D
 # Vehicle logs and the web decoder agree that AP-PARTY is the authoritative
 # source for this installation. Never substitute the same arbitration ID from
 # another logical bus: identical IDs may carry different semantics.
 TRAFFIC_CONTROL_BUSES = (2,)
-TRAFFIC_CONTROL_MIN_DLC = 6
+APP_TRAFFIC_CONTROL_DLC = 8
+LEGACY_DAS_ROAD_DLC = 6
 TRAFFIC_CONTROL_STALE_NS = 750_000_000
 TRAFFIC_CONTROL_MAX_DISTANCE = 200.0
 
@@ -62,7 +64,10 @@ class TeslaTrafficControlObserver:
 
   def __init__(self) -> None:
     self.parsers = {
-      bus: CANParser(DBC_NAME, [("APP_trafficControl", float("nan"))], bus)
+      bus: {
+        APP_TRAFFIC_CONTROL_DLC: CANParser(DBC_NAME, [("APP_trafficControl", float("nan"))], bus),
+        LEGACY_DAS_ROAD_DLC: CANParser(LEGACY_DBC_NAME, [("DAS_road", float("nan"))], bus),
+      }
       for bus in TRAFFIC_CONTROL_BUSES
     }
     self.latest_by_bus: dict[int, TeslaTrafficControlObservation] = {}
@@ -83,8 +88,8 @@ class TeslaTrafficControlObserver:
     return 2 if eligible else 1
 
   @classmethod
-  def _build(cls, values: dict[str, float], bus: int, dlc: int, timestamp_ns: int,
-             raw_address: int, raw_payload: bytes) -> TeslaTrafficControlObservation:
+  def _build_app(cls, values: dict[str, float], bus: int, dlc: int, timestamp_ns: int,
+                 raw_address: int, raw_payload: bytes) -> TeslaTrafficControlObservation:
     control_type = int(values["APP_tcControlType"])
     control_source = int(values["APP_tcControlSource"])
     light_state = int(values["APP_tcControlLightState"])
@@ -116,23 +121,52 @@ class TeslaTrafficControlObserver:
       raw_payload=raw_payload,
     )
 
+  @classmethod
+  def _build_legacy(cls, values: dict[str, float], bus: int, dlc: int, timestamp_ns: int,
+                    raw_address: int, raw_payload: bytes) -> TeslaTrafficControlObservation:
+    light_state = int(values["DAS_trafficLightColor"])
+    distance = float(values["DAS_stopLineDist"])
+    # Legacy DAS_road only defines NONE/RED/GREEN/YELLOW. Code 4 and above
+    # belong to the eight-byte HW4 protocol and must never leak into it.
+    decoded = light_state in (0, 1, 2, 3) and 0.0 <= distance <= 127.5
+    eligible = bool(
+      decoded and light_state in (1, 2, 3)
+      and distance <= TRAFFIC_CONTROL_MAX_DISTANCE
+    )
+    return TeslaTrafficControlObservation(
+      available=True,
+      valid_for_control=eligible,
+      source_bus=bus,
+      dlc=dlc,
+      # Do not let a reserved legacy color become HW4's explicit OFF code.
+      control_type=3 if decoded else 0,
+      distance=distance,
+      light_state=light_state,
+      frame_mono_time=timestamp_ns,
+      quality=cls._quality(decoded, eligible),
+      raw_address=raw_address,
+      raw_payload=raw_payload,
+    )
+
   def update(self, can_packets: list[tuple[int, list[tuple[int, bytes, int]]]], now_ns: int) -> None:
     del now_ns  # packet monotonic time is authoritative
     for packet_mono_time, frames in can_packets:
       for address, data, source in frames:
-        if source not in self.parsers or address != TRAFFIC_CONTROL_ADDRESS or len(data) < TRAFFIC_CONTROL_MIN_DLC:
+        if (source not in self.parsers or address != TRAFFIC_CONTROL_ADDRESS
+            or len(data) not in (APP_TRAFFIC_CONTROL_DLC, LEGACY_DAS_ROAD_DLC)):
           continue
         previous = self.latest_by_bus.get(source)
         if previous is not None and packet_mono_time < previous.frame_mono_time:
           continue
-        # Keep payload, timestamp and DLC atomic. A short/older trailing frame
-        # must not borrow fresh metadata, and a rejected decode must not mask
-        # the newest successfully decoded frame (even within the same batch).
-        parser = self.parsers[source]
+        # Keep payload, timestamp and DLC atomic. The two protocols share an
+        # address but have different meanings; DLC selects the only valid DBC.
+        parser = self.parsers[source][len(data)]
+        message_name = "APP_trafficControl" if len(data) == APP_TRAFFIC_CONTROL_DLC else "DAS_road"
         if address not in parser.update([(packet_mono_time, [(address, data, source)])]):
           continue
-        self.latest_by_bus[source] = self._build(
-          dict(parser.vl["APP_trafficControl"]), source, len(data), packet_mono_time,
+        builder = self._build_app if message_name == "APP_trafficControl" else self._build_legacy
+        self.latest_by_bus[source] = builder(
+          dict(parser.vl[message_name]), source, len(data), packet_mono_time,
           address, bytes(data),
         )
 
