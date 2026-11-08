@@ -10,7 +10,7 @@ Failure cases:
 import numpy as np
 import pytest
 
-from openpilot.tesla.model_source import DEADLINE_NS, HEAD_SHAPES, ModelSource, nanos_since_boot
+from openpilot.tesla.model_source import DEADLINE_NS, HEAD_SHAPES, SIZE, ModelSource, nanos_since_boot
 
 from ..decode import HEAD_OFFSETS, HEAD_PADDING, decoder
 from ..mailbox import HEAD_COUNT, Mailbox
@@ -119,3 +119,16 @@ def test_head_offsets_cover_the_wire(tmp_path):
   assert max(part.stop for part in HEAD_OFFSETS.values()) == HEAD_PADDING.start
   assert HEAD_PADDING.stop == HEAD_COUNT
   assert sum(part.stop - part.start for part in HEAD_OFFSETS.values()) + HEAD_PADDING.stop - HEAD_PADDING.start == HEAD_COUNT
+
+
+def test_mailbox_reports_when_modeld_removes_its_path(tmp_path):
+  """An unlinked mailbox is a finished drive, not a frame to keep replaying forever."""
+  path = tmp_path / "mailbox"
+  path.write_bytes(bytes(SIZE))
+  box = Mailbox(path)
+  try:
+    assert box.alive
+    path.unlink()
+    assert not box.alive
+  finally:
+    box.close()

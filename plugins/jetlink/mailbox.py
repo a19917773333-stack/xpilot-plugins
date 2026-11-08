@@ -45,6 +45,11 @@ class Mailbox:
     self.buffer.close()
     os.close(self.fd)
 
+  @property
+  def alive(self) -> bool:
+    """The owner still publishes this mailbox; false after modeld removed it."""
+    return self.path.exists()
+
   def _locked(self, offset: int, size: int):
     try:
       fcntl.lockf(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB, size, offset)

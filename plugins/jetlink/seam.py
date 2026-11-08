@@ -13,11 +13,13 @@ from .plugin import JETLINK_RUNTIME_DIR
 
 API = 3  # the jetlink.openpilot API this adapter is written to
 MODES = ("off", "usb", "ios")
-# the params jetlink reads and writes; the model manager's big-model slot is not part of xpilot's plugin store, so
-# jetlink runs its own default big model
+# the params jetlink reads and writes. The host model manager's active bundle and catalog stay in params.cc's
+# store, so params_dir links them beside this plugin's own params.
 KEYS = {"link": "XpilotJetlinkMode", "offroad": "IsOffroad", "progress": "XpilotJetlinkProgress",
         "spec": "XpilotJetlinkSpec", "pointers": "XpilotJetlinkPointers",
-        "big_model": None, "catalog": None, "charge_phone": None}
+        "big_model": "ModelManager_ActiveBundleChestnut",
+        "catalog": "ModelManager_ModelsCache_Chestnut", "charge_phone": None}
+HOST_KEYS = frozenset({KEYS["offroad"], KEYS["big_model"], KEYS["catalog"]})
 JSON_KEYS = frozenset({KEYS["progress"], KEYS["spec"], KEYS["pointers"]})
 # comma's chestnut, running and in its ROM: the USB-C port hosts one and is never held as a jetlink device
 CHESTNUT_IDS = frozenset({(0xADD1, 0x0001), (0xADD1, 0x0002), (0x3801, 0x0001),
@@ -44,11 +46,16 @@ def _plugin_params_dir() -> Path:
   return Path(INSTALL_DIR) / ".params"
 
 
+def _param_source(host_dir: Path, plugin_dir: Path, key: str) -> Path:
+  """Which openpilot param store owns a key."""
+  return host_dir / key if key in HOST_KEYS else plugin_dir / key
+
+
 def params_dir() -> Path:
   """A stable directory exposing the two params stores jetlink reads.
 
   Downloaded-plugin params live in xpilot_plugins/.params, while IsOffroad and
-  the other host params live in params.cc's directory. jetlink's lightweight
+  the host model selection live in params.cc's directory. jetlink's lightweight
   owner intentionally reads plain files, so expose one directory containing
   links to both. ParamsView replaces files atomically, which the links follow.
   """
@@ -56,7 +63,7 @@ def params_dir() -> Path:
   plugin_dir = _plugin_params_dir()
   OWNER_PARAMS_DIR.mkdir(parents=True, exist_ok=True)
   for key in (key for key in KEYS.values() if key):
-    source = host_dir / key if key == KEYS["offroad"] else plugin_dir / key
+    source = _param_source(host_dir, plugin_dir, key)
     target = OWNER_PARAMS_DIR / key
     temporary = OWNER_PARAMS_DIR / f".{key}.{os.getpid()}"
     temporary.unlink(missing_ok=True)
@@ -68,6 +75,15 @@ def params_dir() -> Path:
 def keys():
   from jetlink.openpilot.interface import Keys
   return Keys(**KEYS)
+
+
+def _catalog_selector() -> int:
+  """The selector version this host can run; zero when it has no model manager."""
+  try:
+    from openpilot.sunnypilot.models.helpers import REQUIRED_JSON_VERSION
+    return int(REQUIRED_JSON_VERSION)
+  except (ImportError, TypeError, ValueError):
+    return 0
 
 
 def decode_param(key: str, value):
@@ -163,7 +179,7 @@ class Adapter:
     self.keys = keys()
     self.log = cloudlog
     self.basedir = lfs_config_dir()
-    self.catalog_selector = 0
+    self.catalog_selector = _catalog_selector()
     self._stores: dict[Path, object] = {}
     self._geometry: tuple[int, int, int, int] | None = None
 

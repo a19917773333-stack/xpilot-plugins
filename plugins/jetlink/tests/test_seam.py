@@ -53,6 +53,11 @@ def test_params_dir_exposes_plugin_and_host_values(monkeypatch, tmp_path):
   plugin.mkdir()
   (host / "IsOffroad").write_text("0")
   (plugin / "XpilotJetlinkMode").write_text("1")
+  active = {"ref": "a" * 40, "displayName": "BMRLNAP Model v6"}
+  catalog = {"bundles": [{"ref": "a" * 40, "display_name": "BMRLNAP Model v6"}]}
+  (host / "ModelManager_ActiveBundleChestnut").write_text(json.dumps(active))
+  (host / "ModelManager_ModelsCache_Chestnut").write_text(json.dumps(catalog))
+  (plugin / "ModelManager_ActiveBundleChestnut").write_text(json.dumps({"ref": "b" * 40}))
   monkeypatch.setattr(seam, "OWNER_PARAMS_DIR", owner)
   monkeypatch.setattr(seam, "_host_params_dir", lambda: host)
   monkeypatch.setattr(seam, "_plugin_params_dir", lambda: plugin)
@@ -62,12 +67,41 @@ def test_params_dir_exposes_plugin_and_host_values(monkeypatch, tmp_path):
   except OSError as error:
     pytest.skip(f"cannot create symlinks: {error}")
   assert (owner / "IsOffroad").read_text() == "0"
+  assert json.loads((owner / "ModelManager_ActiveBundleChestnut").read_text()) == active
+  assert json.loads((owner / "ModelManager_ModelsCache_Chestnut").read_text()) == catalog
   assert (owner / "XpilotJetlinkMode").read_text() == "1"
 
   replacement = plugin / ".replacement"
   replacement.write_text("2")
   replacement.replace(plugin / "XpilotJetlinkMode")
   assert (owner / "XpilotJetlinkMode").read_text() == "2"
+
+def test_keys_follow_the_host_model_manager():
+  """Jetlink runs the big model selected in xpilot, not its own built-in default."""
+  assert seam.KEYS["big_model"] == "ModelManager_ActiveBundleChestnut"
+  assert seam.KEYS["catalog"] == "ModelManager_ModelsCache_Chestnut"
+
+
+def test_param_sources_use_the_host_model_manager_store(tmp_path):
+  """The owner watches the host's model pick instead of a stale plugin copy."""
+  host = tmp_path / "host"
+  plugin = tmp_path / "plugins"
+  assert seam._param_source(host, plugin, "IsOffroad") == host / "IsOffroad"
+  assert (seam._param_source(host, plugin, "ModelManager_ActiveBundleChestnut")
+          == host / "ModelManager_ActiveBundleChestnut")
+  assert (seam._param_source(host, plugin, "ModelManager_ModelsCache_Chestnut")
+          == host / "ModelManager_ModelsCache_Chestnut")
+  assert seam._param_source(host, plugin, "XpilotJetlinkMode") == plugin / "XpilotJetlinkMode"
+
+
+def test_catalog_selector_comes_from_the_host_model_manager(monkeypatch):
+  """A catalog entry is usable only at the selector version the host supports."""
+  module = types.ModuleType("openpilot.sunnypilot.models.helpers")
+  module.REQUIRED_JSON_VERSION = 21
+  monkeypatch.setitem(sys.modules, module.__name__, module)
+
+  assert seam._catalog_selector() == 21
+
 
 
 def test_owner_pythonpath_includes_persistent_runtime(monkeypatch, tmp_path):

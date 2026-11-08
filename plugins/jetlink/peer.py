@@ -3,6 +3,10 @@
 modeld publishes one frame per camera frame; this process warps that camera frame on the comma's GPU, sends it
 over the link jetlinkd holds, and writes the phone's raw output back. Nothing here is on the car's critical path:
 no published frame, no link or no reply in time is a local frame.
+
+While parked, the same process also keeps the protocol session open: it says hello, asks the phone to keep its
+already-built engine ready, and keeps the USB lease idle. That is what turns Android's USB "attached"
+state into Jetlink's "connected" state without starting cameras or inference early.
 """
 import time
 
@@ -14,6 +18,8 @@ MAILBOX_PARAM = "XpilotJetlinkMailbox"
 SPEC_PARAM = "XpilotJetlinkSpec"
 STATUS_PARAM = "XpilotJetlinkStatus"
 CONNECT_TIMEOUT = 30.0
+HELLO_TIMEOUT = 10.0
+MAILBOX_POLL = 0.2
 FRAME_TIMEOUT = 0.05
 ENGINE_RETRY = 10.0
 
@@ -24,39 +30,80 @@ def address(buf) -> int:
   return int(addr) if addr is not None else int(np.frombuffer(buf, dtype=np.uint8).ctypes.data)
 
 
-def wait_mailbox(params, timeout: float = CONNECT_TIMEOUT):
+def mailbox(params):
+  """The modeld mailbox, if a drive has published one."""
   import os
   from pathlib import Path
-  deadline = time.monotonic() + timeout
-  while time.monotonic() < deadline:
-    path = params.get(MAILBOX_PARAM)
-    if path and Path(path).exists():
-      return Mailbox(os.fspath(path))
-    time.sleep(0.1)
-  return None
+  path = params.get(MAILBOX_PARAM)
+  if not path or not Path(path).exists():
+    return None
+  try:
+    return Mailbox(os.fspath(path))
+  except OSError:
+    # modeld may retire the file between exists() and open().
+    return None
+
+
+def wait_for_mailbox(params, *, timeout: float | None = None,
+                     poll_interval: float = MAILBOX_POLL, client=None):
+  """Hold the open USB lease until modeld starts publishing frames."""
+  import time as _time
+  deadline = None if timeout is None else _time.monotonic() + timeout
+  while True:
+    if client is not None and client.dead:
+      raise ConnectionError("the phone disconnected while waiting for modeld")
+    box = mailbox(params)
+    if box is not None:
+      return box
+    if deadline is not None and _time.monotonic() >= deadline:
+      return None
+    _time.sleep(poll_interval)
 
 
 def open_client(log):
-  """The link jetlinkd lends: the gadget on the cable, or whatever transport the owner set up."""
+  """Open the link jetlinkd lends and keep both the lease and the client."""
   from jetlink.openpilot.link import Link
-  return Link(log, name="xpilot_peer").open(deadline=time.monotonic() + CONNECT_TIMEOUT)
+  link = Link(log, name="xpilot_peer")
+  client = link.open(deadline=time.monotonic() + CONNECT_TIMEOUT)
+  return link, client
 
 
-def prepare_engine(client, value, log) -> bool:
-  """Load the model named by the ready spec; the phone may already hold its engine."""
+def introduce(link, client, log) -> dict:
+  """Start the session and pass its sleep policy back to the owner."""
+  hello = client.hello(timeout=HELLO_TIMEOUT)
+  link.note_server(hello)
+  log.warning("jetlink: phone %s connected (engine %s)",
+              hello.get("device") or "peer", hello.get("engine_state") or "unknown")
+  return hello
+
+
+def prepare_engine(client, value, log):
+  """Load the model named by the ready spec; the phone may already hold its engine.
+
+  False is a malformed spec, while None means the phone does not have the
+  named engine and the ready record is stale. The caller then releases the
+  loan so jetlinkd can provision it.
+  """
   import json
   try:
     spec = json.loads(value) if isinstance(value, str) else (value or {})
     sha256, nbytes = spec.get("sha256"), spec.get("nbytes")
-    if not sha256 or not nbytes:
-      raise ValueError("the spec has no model sha256/nbytes")
+    if spec.get("ready") is not True or not sha256 or not nbytes:
+      raise ValueError("the spec is not a ready model with sha256/nbytes")
     # A ready spec does not carry a comma-local ONNX path. Pass None so the phone
     # reuses its built engine instead of the peer skipping preparation entirely.
     client.ensure_engine(str(sha256), int(nbytes), spec.get("onnx_path"))
     return True
   except Exception as error:
     log.warning("jetlink: could not prepare the phone's engine: %s", error)
-    return False
+    return None if type(error).__name__ == "EngineMissing" else False
+
+
+def clear_ready(params) -> None:
+  """Mark a stale ready spec false so the owner can provision before the peer retries."""
+  value = params.get(SPEC_PARAM)
+  if isinstance(value, dict) and value.get("ready"):
+    params.put(SPEC_PARAM, {**value, "ready": False}, block=False)
 
 
 def frame_geometry(main_stream, extra_stream, configured):
@@ -84,75 +131,95 @@ def main() -> None:
   from openpilot.common.swaglog import cloudlog
   from msgq.visionipc import VisionIpcClient
   from openpilot.cereal.visionipc import VisionStreamType
-  from jetlink.openpilot.warp import Warp, Warps
 
   from .seam import adapter
 
   params = ParamsView(Params())
-  box = wait_mailbox(params)
-  if box is None:
-    cloudlog.warning("jetlink: modeld published no mailbox, the phone stays unused")
-    return
-  parts = adapter()
-  warps = Warps(parts)
-
-  # the stream enum moved out of msgq and ROAD was renamed NARROW_ROAD on newer trees
-  road_stream = getattr(VisionStreamType, "VISION_STREAM_ROAD", None)
-  if road_stream is None:
-    road_stream = VisionStreamType.VISION_STREAM_NARROW_ROAD
-  main_stream = VisionIpcClient("camerad", road_stream, True)
-  extra_stream = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, False)
-  for client in (main_stream, extra_stream):
-    if not client.connect(True):
-      cloudlog.warning("jetlink: camerad not up, the phone stays unused")
-      return
-
+  link = None
   try:
-    geometry = frame_geometry(main_stream, extra_stream, warps.geometry())
-    if not warps.is_cached(*geometry):
-      params.put(STATUS_PARAM, "no local warp", block=False)
-      cloudlog.warning("jetlink: no warp for %s, the phone stays unused", geometry)
-      return
-    warp = Warp(warps.load(*geometry), camera_frame_size(parts.model_face(), geometry))
-  except Exception:
-    params.put(STATUS_PARAM, "warp setup failed", block=False)
-    raise
+    link, client = open_client(cloudlog)
+    introduce(link, client, cloudlog)
+    params.put(STATUS_PARAM, "phone connected", block=False)
 
-  link = open_client(cloudlog)
-  if not prepare_engine(link, params.get(SPEC_PARAM), cloudlog):
-    params.put(STATUS_PARAM, "waiting for phone engine", block=False)
-    while True:
+    prepared = prepare_engine(client, params.get(SPEC_PARAM), cloudlog)
+    if prepared is None:
+      clear_ready(params)
+    if not prepared:
+      params.put(STATUS_PARAM, "waiting for phone engine", block=False)
       _time.sleep(ENGINE_RETRY)
-      if prepare_engine(link, params.get(SPEC_PARAM), cloudlog):
-        break
-  params.put(STATUS_PARAM, "phone engine ready", block=False)
-  epoch = 0
-  served = 0
-  last_note = 0.0
-  while True:
-    frame = box.frame()
-    if frame is None:
-      _time.sleep(0.002)
-      continue
+      return
+    params.put(STATUS_PARAM, "phone engine ready", block=False)
+
+    # Offroad this holds the USB lease idle. Onroad modeld publishes the mailbox and
+    # the same session starts carrying frames.
+    box = wait_for_mailbox(params, client=client)
+
+    from jetlink.openpilot.warp import Warp, Warps
+    parts = adapter()
+    warps = Warps(parts)
+
+    # the stream enum moved out of msgq and ROAD was renamed NARROW_ROAD on newer trees
+    road_stream = getattr(VisionStreamType, "VISION_STREAM_ROAD", None)
+    if road_stream is None:
+      road_stream = VisionStreamType.VISION_STREAM_NARROW_ROAD
+    main_stream = VisionIpcClient("camerad", road_stream, True)
+    extra_stream = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, False)
+    for stream in (main_stream, extra_stream):
+      if not stream.connect(True):
+        cloudlog.warning("jetlink: camerad not up, the phone stays unused")
+        return
+
     try:
-      main_buf = main_stream.recv()
-      extra_buf = extra_stream.recv()
-      warp.start(address(main_buf.data), address(extra_buf.data), frame.img, frame.big_img)
-      warp.wait()
-      packed = np.concatenate([frame.desire, frame.traffic_convention, frame.action_t]).astype(np.float32)
-      raw = link.infer(warp.output, packed, frame.frame, deadline=FRAME_TIMEOUT)
-      if raw.shape[0] < HEAD_COUNT:
-        raise ValueError(f"the phone returned {raw.shape[0]} floats, the host reads {HEAD_COUNT}")
-      if box.reply(frame.session, epoch, frame.frame, frame.eof, raw[:HEAD_COUNT]):
-        served += 1
-      now = _time.monotonic()
-      if now - last_note >= 5.0:
-        last_note = now
-        params.put(STATUS_PARAM, f"served {served} frames", block=False)
-    except Exception as error:
-      epoch += 1
-      cloudlog.warning("jetlink: phone frame failed (%s); the local model drives", error)
-      time.sleep(0.5)
+      geometry = frame_geometry(main_stream, extra_stream, warps.geometry())
+      if not warps.is_cached(*geometry):
+        params.put(STATUS_PARAM, "no local warp", block=False)
+        cloudlog.warning("jetlink: no warp for %s, the phone stays unused", geometry)
+        return
+      warp = Warp(warps.load(*geometry), camera_frame_size(parts.model_face(), geometry))
+    except Exception:
+      params.put(STATUS_PARAM, "warp setup failed", block=False)
+      raise
+
+    epoch = 0
+    served = 0
+    last_note = 0.0
+    while True:
+      if not box.alive:
+        cloudlog.warning("jetlink: modeld retired the mailbox; reconnecting the phone")
+        return
+      frame = box.frame()
+      if frame is None:
+        _time.sleep(0.002)
+        continue
+      try:
+        main_buf = main_stream.recv()
+        extra_buf = extra_stream.recv()
+        if main_buf is None or extra_buf is None:
+          cloudlog.warning("jetlink: camerad stopped; reconnecting the phone")
+          return
+        warp.start(address(main_buf.data), address(extra_buf.data), frame.img, frame.big_img)
+        warp.wait()
+        packed = np.concatenate([frame.desire, frame.traffic_convention, frame.action_t]).astype(np.float32)
+        raw = client.infer(warp.output, packed, frame.frame, deadline=FRAME_TIMEOUT)
+        if raw.shape[0] < HEAD_COUNT:
+          raise ValueError(f"the phone returned {raw.shape[0]} floats, the host reads {HEAD_COUNT}")
+        if box.reply(frame.session, epoch, frame.frame, frame.eof, raw[:HEAD_COUNT]):
+          served += 1
+        now = _time.monotonic()
+        if now - last_note >= 5.0:
+          last_note = now
+          params.put(STATUS_PARAM, f"served {served} frames", block=False)
+        if client.dead:
+          raise RuntimeError("the phone link stopped answering")
+      except Exception as error:
+        epoch += 1
+        cloudlog.warning("jetlink: phone frame failed (%s); the local model drives", error)
+        if client.dead:
+          return
+        _time.sleep(0.5)
+  finally:
+    if link is not None:
+      link.close()
 
 
 if __name__ == "__main__":

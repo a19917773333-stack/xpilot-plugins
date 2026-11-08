@@ -3,7 +3,97 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..peer import camera_frame_size, frame_geometry, prepare_engine
+from ..peer import camera_frame_size, clear_ready, frame_geometry, introduce, prepare_engine, wait_for_mailbox
+
+
+def test_introduce_hands_the_phone_hello_to_the_owner():
+  """The owner learns sleep_after from the peer, so it can keep an always-on phone linked."""
+
+  class Client:
+    @staticmethod
+    def hello(timeout):
+      assert timeout > 0
+      return {"device": "phone", "sleep_after": 0, "engine_state": "ready"}
+
+  class Link:
+    def __init__(self):
+      self.hello = None
+
+    def note_server(self, hello):
+      self.hello = hello
+
+  class Log:
+    @staticmethod
+    def warning(*args):
+      pass
+
+  link = Link()
+  hello = introduce(link, Client(), Log())
+  assert link.hello == hello == {"device": "phone", "sleep_after": 0, "engine_state": "ready"}
+
+
+def test_wait_for_mailbox_holds_the_idle_lease_until_modeld_starts(tmp_path):
+  """The phone does not answer parked pings; the open USB lease is the keepalive."""
+  from ..mailbox import SIZE
+
+  class Params:
+    reads = 0
+
+    def get(self, key):
+      self.reads += 1
+      if self.reads == 3:
+        (tmp_path / "mailbox").write_bytes(bytes(SIZE))
+      return str(tmp_path / "mailbox")
+
+  params = Params()
+  box = wait_for_mailbox(params, poll_interval=0.001)
+  assert box is not None
+  box.close()
+  assert params.reads == 3
+
+
+def test_wait_for_mailbox_stops_when_the_phone_disconnects():
+  """A dead client must not leave a parked peer holding a stale USB lease forever."""
+  class Params:
+    @staticmethod
+    def get(key):
+      return None
+
+  client = SimpleNamespace(dead=True)
+  with pytest.raises(ConnectionError, match="phone disconnected"):
+    wait_for_mailbox(Params(), poll_interval=0.001, client=client)
+
+
+def test_missing_phone_engine_invalidates_a_stale_ready_spec():
+  """A wiped phone must release the loan so provisioning can run again."""
+  class EngineMissing(Exception):
+    pass
+
+  class Client:
+    @staticmethod
+    def ensure_engine(*args):
+      raise EngineMissing("not on the phone")
+
+  class Log:
+    @staticmethod
+    def warning(*args):
+      pass
+
+  class Params:
+    def __init__(self):
+      self.value = {"ready": True, "sha256": "a" * 64, "nbytes": 123}
+
+    def get(self, key):
+      return self.value
+
+    def put(self, key, value, block=False):
+      assert block is False
+      self.value = value
+
+  params = Params()
+  assert prepare_engine(Client(), params.value, Log()) is None
+  clear_ready(params)
+  assert params.value["ready"] is False
 
 
 def test_frame_geometry_keeps_camera_and_model_sizes_separate():

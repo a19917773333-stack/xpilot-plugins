@@ -7,10 +7,17 @@ runs this plugin's three processes instead:
 |---|---|
 | `jetlinkd` | runs whenever the link is enabled, including offroad provisioning, and holds the USB gadget |
 | `jetlink_modeld` | openpilot's modeld with a model-source mailbox attached (`run_with_model_source`) |
-| `jetlink_peer` | warps the camera frame modeld published, sends it over the link, writes the phone's output back |
+| `jetlink_peer` | keeps the phone protocol connected offroad, then warps and sends modeld's camera frames onroad |
 
-`jetlinkd` runs while parked so the phone can connect and prepare its model. The two inference processes wait for a
-drive and stop when parked.
+`jetlinkd` runs while parked so the phone can connect and prepare its model. Once the ready spec names a phone
+engine, `jetlink_peer` also runs offroad: it sends `hello`, passes the phone's `sleep_after` policy back to the
+owner, loads the named engine, and keeps its USB lease open without sending unsupported pings.
+`jetlink_modeld` still waits for a drive; when the drive mailbox appears, the already-open peer session
+switches to camera frames.
+
+When modeld retires its mailbox or camerad stops publishing, `jetlink_peer` exits instead of replaying
+an unlinked frame file. The host manager then restarts it, which reopens the USB lease and repeats the phone
+handshake before the next drive.
 
 `jetlink_modeld` always runs the local model. A phone frame is adopted per frame, only when it lands inside
 `openpilot/tesla/model_source.py`'s 60 ms deadline and passes `decode.admit`; otherwise the local frame drives.
@@ -27,8 +34,15 @@ That is why a link that is off, missing, late or foreign is a normal drive on xp
   package dynamically, but Python subprocesses do not inherit it through normal `PYTHONPATH`.
 - `XpilotJetlinkPointers`, `XpilotJetlinkProgress` and `XpilotJetlinkSpec` are JSON params. The adapter also
   decodes the Python text written by 1.0.8, so upgrading keeps the already known model pointer.
+- The model comes from xpilot's model manager: Jetlink follows `ModelManager_ActiveBundleChestnut` and reads
+  `ModelManager_ModelsCache_Chestnut` at the host's `REQUIRED_JSON_VERSION`. Selecting `BMRLNAP Model v6` in
+  the host therefore provisions and runs that model on the phone instead of Jetlink's built-in default.
 - A ready `XpilotJetlinkSpec` needs the model's `sha256` and `nbytes`. The `onnx_path` is optional: the peer asks
   the phone for that already-built engine by identity instead of skipping preparation when the comma path is gone.
+- Offroad peer startup is gated on that ready spec. This avoids holding the owner's loan while the model still has to
+  be provisioned. The spec must also resolve to the host's selected model; an old ready spec does not take the USB
+  lease after the user switches models. If the phone reports that the engine is missing, the peer marks the stale spec
+  unready and exits so `jetlinkd` can provision it again.
 - The adapter points Jetlink's LFS lookup at `/dev/shm/jetlink/lfs/.lfsconfig`, where `hf-mirror.com` is the
   first endpoint. This keeps the host checkout clean and avoids the blocked canonical HuggingFace host on
   networks where the mirror is reachable; Jetlink's built-in LFS endpoints remain as fallbacks.

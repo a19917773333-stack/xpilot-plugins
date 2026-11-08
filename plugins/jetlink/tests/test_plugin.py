@@ -7,6 +7,7 @@ import types
 import pytest
 
 from .. import plugin as manifest
+from .. import ready as readiness
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -133,18 +134,43 @@ def test_available_uses_persistent_runtime_without_checkout_link(monkeypatch, tm
   assert sys.path[0] == str(runtime)
 
 
-def test_link_owner_stays_up_offroad_but_inference_processes_do_not(monkeypatch):
-  """The USB owner provisions while parked; modeld and the peer wait for a drive."""
+def test_peer_joins_offroad_only_when_a_model_is_ready(monkeypatch):
+  """The parked peer completes the phone handshake, but not while it would block provisioning."""
   monkeypatch.setattr(manifest, "available", lambda: True)
   fake_python_process(monkeypatch)
 
   class Params:
-    def get(self, _key):
-      return 1
+    def __init__(self, ready=True, ref="a" * 40, pointer_oid="a" * 64):
+      self.ready = ready
+      self.ref = ref
+      self.pointer_oid = pointer_oid
+
+    def get(self, key):
+      if key == manifest.MODE_PARAM:
+        return 1
+      if key == readiness.SPEC_PARAM:
+        return {"ready": self.ready, "sha256": "a" * 64, "nbytes": 123} if self.ready else {}
+      if key == readiness.BIG_MODEL_PARAM:
+        return {"ref": self.ref}
+      if key == readiness.POINTERS_PARAM:
+        return {self.ref: {"oid": self.pointer_oid, "size": 123}} if self.pointer_oid else {}
+      return None
 
   processes = {proc.name: proc for proc in manifest.Jetlink.processes()}
-  params = Params()
-  assert processes["jetlinkd"].should_run(False, params, None)
-  assert not processes["jetlink_modeld"].should_run(False, params, None)
-  assert not processes["jetlink_peer"].should_run(False, params, None)
-  assert all(proc.should_run(True, params, None) for proc in processes.values())
+  current = Params(ready=True)
+  assert processes["jetlinkd"].should_run(False, current, None)
+  assert not processes["jetlink_modeld"].should_run(False, current, None)
+  assert processes["jetlink_peer"].should_run(False, current, None)
+
+  not_ready = Params(ready=False)
+  assert not processes["jetlink_peer"].should_run(False, not_ready, None)
+
+  wrong_model = Params(ref="b" * 40, pointer_oid="b" * 64)
+  assert not processes["jetlink_peer"].should_run(False, wrong_model, None)
+  assert not processes["jetlink_peer"].should_run(True, wrong_model, None)
+
+  unresolved = Params(pointer_oid=None)
+  assert not processes["jetlink_peer"].should_run(False, unresolved, None)
+
+  assert processes["jetlink_modeld"].should_run(True, not_ready, None)
+  assert not processes["jetlink_peer"].should_run(True, not_ready, None)

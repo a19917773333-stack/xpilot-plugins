@@ -15,6 +15,7 @@ Failure cases:
 from pathlib import Path
 
 from openpilot.tesla.plugin import Plugin
+from .ready import peer_ready
 
 MODES = ("off", "usb", "ios")
 MODE_PARAM = "XpilotJetlinkMode"
@@ -70,7 +71,19 @@ def _owner(started, params, CP) -> bool:
   return run_processes(params, CP)
 
 
-PROCESS_GATES = {"jetlinkd": _owner, "jetlink_modeld": _onroad, "jetlink_peer": _onroad}
+
+
+def _peer(started, params, CP) -> bool:
+  """The peer also connects offroad once the phone has a prepared engine.
+
+  Offroad peer use must not hold the gadget while the owner still has model
+  provisioning to do. A ready spec from the previous selection is stale until
+  its pointer matches the host's current model slot.
+  """
+  return run_processes(params, CP) and peer_ready(params)
+
+
+PROCESS_GATES = {"jetlinkd": _owner, "jetlink_modeld": _onroad, "jetlink_peer": _peer}
 
 
 class Jetlink(Plugin):
