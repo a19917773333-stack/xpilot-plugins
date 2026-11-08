@@ -229,7 +229,8 @@ class Adapter:
 
   def model_root(self) -> Path:
     """Where jetlink keeps its downloads: next to the models it serves."""
-    return _models_dir()
+    from openpilot.common.hardware.hw import Paths
+    return Path(Paths.model_root())
 
   def model_face(self):
     """What openpilot's modeld reads off a model: comma's parser, constants and action function."""

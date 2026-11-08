@@ -154,6 +154,14 @@ class Index:
     return self.mapping.get(ref)
 
 
+def test_models_index_uses_the_host_model_manager_cache(monkeypatch, tmp_path):
+  module = types.ModuleType("openpilot.common.hardware.hw")
+  module.Paths = type("Paths", (), {"model_root": staticmethod(lambda: str(tmp_path))})
+  monkeypatch.setitem(sys.modules, module.__name__, module)
+
+  assert readiness._models_index_path() == tmp_path / "jetlink" / "index.json"
+
+
 def ready_params(ref=None, pointer_oid="a" * 64):
   spec = {"ready": True, "sha256": "a" * 64, "nbytes": 123}
   pointers = {ref: {"oid": pointer_oid, "size": 123}} if ref and pointer_oid else {}

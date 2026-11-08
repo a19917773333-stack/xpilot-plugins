@@ -9,8 +9,8 @@ BIG_MODEL_PARAM = "ModelManager_ActiveBundleChestnut"
 
 def _models_index_path() -> Path:
   """The copy of Jetlink's model index that the runtime keeps beside its models."""
-  from openpilot.selfdrive.modeld.helpers import MODELS_DIR
-  return Path(MODELS_DIR) / "jetlink" / "index.json"
+  from openpilot.common.hardware.hw import Paths
+  return Path(Paths.model_root()) / "jetlink" / "index.json"
 
 
 def _parse_index(data):

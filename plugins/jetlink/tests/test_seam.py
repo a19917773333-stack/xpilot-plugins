@@ -87,6 +87,14 @@ def test_keys_follow_the_host_model_manager():
   assert seam.KEYS["catalog"] == "ModelManager_ModelsCache_Chestnut"
   assert seam.KEYS["select"] == "ModelManager_DownloadRef"
 
+def test_model_root_is_the_host_model_manager_cache(monkeypatch, tmp_path):
+  """v0.9.0 downloads under Paths.model_root(), not modeld's source model directory."""
+  module = types.ModuleType("openpilot.common.hardware.hw")
+  module.Paths = type("Paths", (), {"model_root": staticmethod(lambda: str(tmp_path))})
+  monkeypatch.setitem(sys.modules, module.__name__, module)
+
+  assert seam.Adapter.model_root(seam.Adapter.__new__(seam.Adapter)) == tmp_path
+
 
 def test_param_sources_use_the_host_model_manager_store(tmp_path):
   """The owner watches the host's model pick instead of a stale plugin copy."""
