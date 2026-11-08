@@ -39,6 +39,14 @@ def test_every_param_the_code_writes_is_declared():
   assert declared <= params, declared - params
 
 
+def test_object_params_round_trip_as_json():
+  """Pointers, progress and the spec are dicts; STRING storage silently turns them into unusable text."""
+  params = spec()["params"]
+  assert {key: params[key]["type"] for key in ("XpilotJetlinkPointers", "XpilotJetlinkProgress", "XpilotJetlinkSpec")} == {
+    "XpilotJetlinkPointers": "JSON", "XpilotJetlinkProgress": "JSON", "XpilotJetlinkSpec": "JSON",
+  }
+
+
 def test_processes_are_one_python_process_each(monkeypatch):
   fake_python_process(monkeypatch)
   processes = manifest.Jetlink.processes()
@@ -61,6 +69,26 @@ def test_off_or_uninstalled_runs_nothing():
   assert manifest.mode(Params(2)) == "ios"
   assert not manifest._onroad(False, Params(1), None)
   assert manifest._onroad(True, Params(0), None) is False
+
+
+def test_available_uses_persistent_runtime_without_checkout_link(monkeypatch, tmp_path):
+  """A reboot removing /data/openpilot/jetlink must not hide the saved runtime package."""
+  runtime = tmp_path / "runtime"
+  package = runtime / "jetlink"
+  package.mkdir(parents=True)
+  (package / "__init__.py").write_text("")
+  monkeypatch.setattr(manifest, "JETLINK_RUNTIME_DIR", runtime)
+  monkeypatch.setattr(sys, "path", [path for path in sys.path if path != str(runtime)])
+
+  class NoCheckoutLink:
+    def find_spec(self, name, path=None, target=None):
+      if name == "jetlink" and str(runtime) not in sys.path:
+        raise ModuleNotFoundError("checkout link is gone", name=name)
+      return None
+
+  monkeypatch.setattr(sys, "meta_path", [NoCheckoutLink(), *sys.meta_path])
+  assert manifest.available()
+  assert sys.path[0] == str(runtime)
 
 
 def test_link_owner_stays_up_offroad_but_inference_processes_do_not(monkeypatch):

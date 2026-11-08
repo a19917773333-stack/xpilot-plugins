@@ -1,7 +1,7 @@
 {
   "id": "jetlink",
   "name": "Jetlink (phone model)",
-  "version": "1.0.4",
+  "version": "1.0.9",
   "api": 1,
   "use": "both",
   "category": "perception_model",
@@ -17,9 +17,9 @@
   "params": {
     "XpilotJetlink": {"type": "BOOL", "default": "0"},
     "XpilotJetlinkMode": {"type": "INT", "default": "0"},
-    "XpilotJetlinkProgress": {"type": "STRING", "default": ""},
-    "XpilotJetlinkSpec": {"type": "STRING", "default": ""},
-    "XpilotJetlinkPointers": {"type": "STRING", "default": ""},
+    "XpilotJetlinkProgress": {"type": "JSON", "default": {}},
+    "XpilotJetlinkSpec": {"type": "JSON", "default": {}},
+    "XpilotJetlinkPointers": {"type": "JSON", "default": {}},
     "XpilotJetlinkMailbox": {"type": "STRING", "default": ""},
     "XpilotJetlinkStatus": {"type": "STRING", "default": ""}
   }

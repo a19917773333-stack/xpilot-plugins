@@ -134,13 +134,13 @@
     {
       "id": "jetlink",
       "name": "Jetlink (phone model)",
-      "version": "1.0.4",
+      "version": "1.0.9",
       "api": 1,
       "category": "perception_model",
       "author": "xpilot",
       "description": "Run the driving model on a phone, Mac or Jetson on the USB cable (jetlink), and drive on xpilot's own model whenever the link is off, missing or late.",
-      "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/jetlink-1.0.4.tar.gz",
-      "sha256": "063a2acbad72eabf931c3c28e4fdc9f14a741fd649f5393663f1f71f7825292b",
+      "url": "https://raw.githubusercontent.com/a19917773333-stack/xpilot-plugins/main/dist/jetlink-1.0.9.tar.gz",
+      "sha256": "184a13f7e1c4bd59f787d979ed337bec3cc47fe57daa294bf53bf623982bbaea",
       "platform": null,
       "default": false
     },
