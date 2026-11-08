@@ -52,6 +52,23 @@ def prepare_engine(client, value, log) -> None:
     log.warning("jetlink: could not prepare the phone's engine; the link decides")
 
 
+def frame_geometry(main_stream, extra_stream, configured):
+  """Use the live camera size; the adapter supplies only the model input size."""
+  dimensions = (main_stream.width, main_stream.height, extra_stream.width, extra_stream.height)
+  if any(value is None for value in dimensions):
+    raise RuntimeError("camerad did not publish frame dimensions")
+  cam_w, cam_h, extra_w, extra_h = (int(value) for value in dimensions)
+  if (cam_w, cam_h) != (extra_w, extra_h):
+    raise RuntimeError(f"road streams disagree: {cam_w}x{cam_h} and {extra_w}x{extra_h}")
+  model_w, model_h = configured[2:]
+  return cam_w, cam_h, int(model_w), int(model_h)
+
+
+def camera_frame_size(model_face, geometry):
+  """The warp copies camera NV12 bytes, never the smaller model input."""
+  return model_face.frame_size(geometry[0], geometry[1])
+
+
 def main() -> None:
   import time as _time
 
@@ -71,11 +88,6 @@ def main() -> None:
     return
   parts = adapter()
   warps = Warps(parts)
-  geometry = warps.geometry()
-  if not warps.built():
-    cloudlog.warning("jetlink: no warp for %s, the phone stays unused", geometry)
-    return
-  warp = Warp(warps.load(*geometry), parts.model_face().frame_size(*geometry[2:]))
 
   # the stream enum moved out of msgq and ROAD was renamed NARROW_ROAD on newer trees
   road_stream = getattr(VisionStreamType, "VISION_STREAM_ROAD", None)
@@ -87,6 +99,17 @@ def main() -> None:
     if not client.connect(True):
       cloudlog.warning("jetlink: camerad not up, the phone stays unused")
       return
+
+  try:
+    geometry = frame_geometry(main_stream, extra_stream, warps.geometry())
+    if not warps.is_cached(*geometry):
+      params.put(STATUS_PARAM, "no local warp", block=False)
+      cloudlog.warning("jetlink: no warp for %s, the phone stays unused", geometry)
+      return
+    warp = Warp(warps.load(*geometry), camera_frame_size(parts.model_face(), geometry))
+  except Exception:
+    params.put(STATUS_PARAM, "warp setup failed", block=False)
+    raise
 
   link = open_client(cloudlog)
   prepare_engine(link, params.get(SPEC_PARAM), cloudlog)

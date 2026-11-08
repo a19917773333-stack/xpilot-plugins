@@ -3,11 +3,43 @@ import json
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
 
 from .. import seam
+
+
+def test_adapter_uses_the_device_warp_and_model_input_size(monkeypatch, tmp_path):
+  """The chestnut warp is built for its eGPU; a local drive needs the device warp and model size."""
+  (tmp_path / "driving_warp_1928x1208_tinygrad.pkl").touch()
+  (tmp_path / "big_driving_warp_1928x1208_tinygrad.pkl").touch()
+  monkeypatch.setattr(seam, "_models_dir", lambda: tmp_path)
+  adapter = object.__new__(seam.Adapter)
+  adapter._geometry = None
+
+  assert adapter.camera() == (1928, 1208, 512, 256)
+  assert adapter.warp_path(1928, 1208, 512, 256) == tmp_path / "driving_warp_1928x1208_tinygrad.pkl"
+
+
+def test_adapter_does_not_offer_a_chestnut_only_warp(monkeypatch, tmp_path):
+  """Without the local device warp, the peer must report no warp instead of loading the eGPU build."""
+  (tmp_path / "big_driving_warp_1928x1208_tinygrad.pkl").touch()
+  monkeypatch.setattr(seam, "_models_dir", lambda: tmp_path)
+  adapter = object.__new__(seam.Adapter)
+  adapter._geometry = None
+
+  assert adapter.camera() == (0, 0, 512, 256)
+  assert not adapter.warp_path(1928, 1208, 512, 256).exists()
+
+def test_frame_size_uses_camerad_nv12_layout(monkeypatch):
+  """The frame-size helper lives beside camerad, not in common camera geometry."""
+  module = types.ModuleType("openpilot.system.camerad.cameras.nv12_info")
+  module.get_nv12_info = lambda width, height: (width, height, height, 123456)
+  monkeypatch.setitem(sys.modules, module.__name__, module)
+
+  assert seam._frame_size(1928, 1208) == 123456
 
 HERE = Path(__file__).resolve().parents[2]  # the plugins directory pytest put on sys.path, which holds this package
 

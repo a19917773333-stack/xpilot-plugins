@@ -53,6 +53,48 @@ def test_processes_are_one_python_process_each(monkeypatch):
   assert [process.name for process in processes] == [name for name, _ in manifest.PROCESSES]
   assert all(process.module.startswith("jetlink.") for process in processes)
 
+def test_prepare_install_checks_the_device_warp(monkeypatch):
+  """The store probe must reject a missing or unreadable local warp before activation."""
+  from .. import seam
+
+  packages = {}
+  for name in ("jetlink", "jetlink.openpilot", "jetlink.openpilot.warp"):
+    module = types.ModuleType(name)
+    module.__path__ = []
+    packages[name] = module
+    monkeypatch.setitem(sys.modules, name, module)
+
+  class Warps:
+    cached = True
+    error = None
+
+    def __init__(self, parts):
+      assert parts == "adapter"
+
+    def geometry(self):
+      return (1928, 1208, 512, 256)
+
+    def is_cached(self, *geometry):
+      assert geometry == (1928, 1208, 512, 256)
+      return self.cached
+
+    def load(self, *geometry):
+      assert geometry == (1928, 1208, 512, 256)
+      if self.error is not None:
+        raise self.error
+      return {}
+
+  packages["jetlink.openpilot.warp"].Warps = Warps
+  monkeypatch.setattr(manifest, "available", lambda: True)
+  monkeypatch.setattr(seam, "adapter", lambda: "adapter")
+
+  assert manifest.Jetlink.prepare_install() is True
+  Warps.cached = False
+  assert manifest.Jetlink.prepare_install() is False
+  Warps.cached = True
+  Warps.error = RuntimeError("wrong GPU")
+  assert manifest.Jetlink.prepare_install() is False
+
 
 def test_off_or_uninstalled_runs_nothing():
   class Params:

@@ -77,6 +77,23 @@ class Jetlink(Plugin):
   """Owns role:perception.model. Its modeld runs the local model and adopts phone frames when they arrive."""
 
   @classmethod
+  def prepare_install(cls) -> bool:
+    """The store probe checks the device warp before activating a model-role plugin."""
+    try:
+      if not available():
+        return False
+      from jetlink.openpilot.warp import Warps
+      from .seam import adapter
+      warps = Warps(adapter())
+      geometry = warps.geometry()
+      if not warps.is_cached(*geometry):
+        return False
+      warps.load(*geometry)
+      return True
+    except Exception:
+      return False
+
+  @classmethod
   def processes(cls) -> list:
     from openpilot.system.manager.process import PythonProcess
     return [PythonProcess(name, f"{__package__}.{module}", PROCESS_GATES[name]) for name, module in PROCESSES]

@@ -30,8 +30,8 @@ That is why a link that is off, missing, late or foreign is a normal drive on xp
 - The adapter points Jetlink's LFS lookup at `/dev/shm/jetlink/lfs/.lfsconfig`, where `hf-mirror.com` is the
   first endpoint. This keeps the host checkout clean and avoids the blocked canonical HuggingFace host on
   networks where the mirror is reachable; Jetlink's built-in LFS endpoints remain as fallbacks.
-- A warp build for this camera (`openpilot/selfdrive/modeld/models/big_driving_warp_*_tinygrad.pkl`), the same
-  file modeld loads.
+- The device's own QCOM warp for this camera (`openpilot/selfdrive/modeld/models/driving_warp_*_tinygrad.pkl`).
+  `big_driving_warp_*` is chestnut's eGPU build and must not be loaded as the local C3 warp.
 - Settings: `XpilotJetlink` on, `XpilotJetlinkMode` = `USB host` (Jetson/Mac/Linux) or `iPhone`.
 
 ## Claims and limits
@@ -39,7 +39,8 @@ That is why a link that is off, missing, late or foreign is a normal drive on xp
 - Claims `role:perception.model` and one `process:` per process above; nothing else. No CAN, no panda rules.
 - The peer is **not verified on a car or against a real phone** in this release: the mailbox side is tested
   end to end against modeld's own `ModelSource`, the link and warp sides are not. `XpilotJetlinkStatus` and the
-  Jetlink tile say how many frames were served.
+  Jetlink tile says how many frames the peer served. When the peer is not running, it reports the provisioning
+  stage instead, so a ready engine is not shown as `link off` merely because `XpilotJetlinkStatus` is empty.
 - The upstream Jetlink hardware support is C3X/C4. Running it on a C3 is experimental; process and USB gadget
   evidence does not by itself prove that the phone app has completed its protocol handshake.
 - The phone's model must answer with the head layout `openpilot/tesla/model_source.py` expects (2066 floats);

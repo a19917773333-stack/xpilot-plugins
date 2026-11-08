@@ -200,21 +200,25 @@ class Adapter:
       return False
 
   def camera(self) -> tuple[int, int, int, int]:
-    """(cam_w, cam_h, model_w, model_h) of the warp this checkout carries: the biggest built one, which is
-    modeld's main camera on a comma three."""
+    """(cam_w, cam_h, model_w, model_h) for the device's own QCOM warp.
+
+    ``big_*`` is chestnut's eGPU build and loads an AMD device even when the file sits on a C3.
+    """
     if self._geometry is None:
       found = []
-      for path in _models_dir().glob("big_driving_warp_*x*_tinygrad.pkl"):
+      from openpilot.common.transformations.model import MEDMODEL_INPUT_SIZE
+
+      for path in _models_dir().glob("driving_warp_*x*_tinygrad.pkl"):
         try:
           width, height = (int(v) for v in path.stem.split("_")[-2].split("x"))
         except ValueError:
           continue
         found.append((width, height))
-      self._geometry = (*max(found), *max(found)) if found else (0, 0, 0, 0)
+      self._geometry = (*max(found), *MEDMODEL_INPUT_SIZE) if found else (0, 0, *MEDMODEL_INPUT_SIZE)
     return self._geometry
 
   def warp_path(self, cam_w: int, cam_h: int, model_w: int, model_h: int) -> Path:
-    return _models_dir() / f"big_driving_warp_{cam_w}x{cam_h}_tinygrad.pkl"
+    return _models_dir() / f"driving_warp_{cam_w}x{cam_h}_tinygrad.pkl"
 
   def model_root(self) -> Path:
     """Where jetlink keeps its downloads: next to the models it serves."""
@@ -244,5 +248,5 @@ class Adapter:
 
 
 def _frame_size(w: int, h: int) -> int:
-  from openpilot.common.transformations.camera import get_nv12_info
+  from openpilot.system.camerad.cameras.nv12_info import get_nv12_info
   return get_nv12_info(w, h)[3]
