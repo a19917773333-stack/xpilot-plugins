@@ -11,7 +11,8 @@ runs this plugin's three processes instead:
 
 `jetlinkd` runs while parked so the phone can connect and prepare its model. Once the ready spec names a phone
 engine, `jetlink_peer` also runs offroad: it sends `hello` with the host's current model pick, keeps the phone's
-returned pick for the owner, loads the named engine, and holds its USB lease without sending unsupported pings.
+returned pick for the owner, loads the named engine, and pings every 10 seconds so the idle USB session stays
+active. A missing PONG within 2 seconds releases the stale lease instead of reusing a suspended transport.
 `jetlink_modeld` still waits for a drive; when the drive mailbox appears, the already-open peer session
 switches to camera frames.
 
@@ -29,7 +30,7 @@ handshake before the next drive.
 
 On C3, the patched v0.9.0 runtime also keeps a configured C-to-C gadget alive through the port policy's
 initial role settle and a brief USB PD power-role gap. The peer reads the runtime's `client.link_lost` state
-while parked, so an unbind that happens during sleep releases the stale lease immediately instead of leaving
+while parked in addition to protocol keepalives, so an unbind or missed PONG releases the stale lease instead of leaving
 old FunctionFS endpoints held until the next manual reconnect.
 
 `jetlink_modeld` always runs the local model. A phone frame is adopted per frame, only when it lands inside

@@ -23,6 +23,8 @@ MAILBOX_POLL = 0.2
 FRAME_TIMEOUT = 0.05
 ENGINE_RETRY = 10.0
 WARMUP_TIMEOUT = 120.0
+KEEPALIVE_PERIOD = 10.0
+PING_TIMEOUT = 2.0
 
 
 def address(buf) -> int:
@@ -61,9 +63,17 @@ def wait_for_mailbox(params, *, timeout: float | None = None,
   """Hold the open USB lease until modeld starts publishing frames."""
   import time as _time
   deadline = None if timeout is None else _time.monotonic() + timeout
+  next_keepalive = _time.monotonic() + KEEPALIVE_PERIOD
   while True:
     if client is not None and link_lost(client):
       raise ConnectionError("the phone disconnected while waiting for modeld")
+    now = _time.monotonic()
+    if client is not None and now >= next_keepalive:
+      try:
+        client.ping(timeout=PING_TIMEOUT)
+      except Exception as error:
+        raise ConnectionError(f"the phone keepalive failed: {error}") from error
+      next_keepalive = _time.monotonic() + KEEPALIVE_PERIOD
     box = mailbox(params)
     if box is not None:
       return box

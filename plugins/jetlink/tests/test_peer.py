@@ -116,7 +116,7 @@ def test_introduce_hands_the_phone_hello_to_the_owner(monkeypatch):
 
 
 def test_wait_for_mailbox_holds_the_idle_lease_until_modeld_starts(tmp_path):
-  """The phone does not answer parked pings; the open USB lease is the keepalive."""
+  """The peer keeps checking for modeld without constructing a missing mailbox."""
   from ..mailbox import SIZE
 
   class Params:
@@ -148,7 +148,7 @@ def test_wait_for_mailbox_stops_when_the_phone_disconnects():
 
 
 def test_wait_for_mailbox_stops_when_usb_reenumerates_behind_an_idle_client():
-  """A parked peer does no I/O, so the transport reader, not client.dead, sees a USB edge."""
+  """The transport reader can see a USB edge between keepalive pings."""
   class Params:
     @staticmethod
     def get(key):
@@ -157,6 +157,51 @@ def test_wait_for_mailbox_stops_when_usb_reenumerates_behind_an_idle_client():
   client = SimpleNamespace(dead=False, link_lost=True)
   with pytest.raises(ConnectionError, match="phone disconnected"):
     wait_for_mailbox(Params(), timeout=0.02, poll_interval=0.001, client=client)
+
+def test_wait_for_mailbox_pings_an_idle_phone_session(monkeypatch):
+  """USB needs traffic while parked, or the host suspends and re-enumerates it."""
+  class Params:
+    @staticmethod
+    def get(key):
+      return None
+
+  class Client:
+    dead = False
+    link_lost = False
+
+    def __init__(self):
+      self.pings = []
+
+    def ping(self, *, timeout):
+      self.pings.append(timeout)
+
+  monkeypatch.setattr(peer_module, "KEEPALIVE_PERIOD", 0.01, raising=False)
+  monkeypatch.setattr(peer_module, "PING_TIMEOUT", 0.002, raising=False)
+  client = Client()
+  assert wait_for_mailbox(Params(), timeout=0.04, poll_interval=0.001, client=client) is None
+  assert len(client.pings) >= 2
+  assert set(client.pings) == {0.002}
+
+
+def test_wait_for_mailbox_releases_a_session_that_fails_keepalive(monkeypatch):
+  """A missing PONG is a dead lease and must be reported, not reused silently."""
+  class Params:
+    @staticmethod
+    def get(key):
+      return None
+
+  class Client:
+    dead = False
+    link_lost = False
+
+    @staticmethod
+    def ping(*, timeout):
+      raise RuntimeError(f"no PONG within {timeout}s")
+
+  monkeypatch.setattr(peer_module, "KEEPALIVE_PERIOD", 0.01, raising=False)
+  monkeypatch.setattr(peer_module, "PING_TIMEOUT", 0.002, raising=False)
+  with pytest.raises(ConnectionError, match="keepalive failed"):
+    wait_for_mailbox(Params(), timeout=0.04, poll_interval=0.001, client=Client())
 
 
 def test_missing_phone_engine_invalidates_a_stale_ready_spec():
