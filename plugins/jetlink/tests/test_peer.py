@@ -4,6 +4,63 @@ from types import SimpleNamespace
 import pytest
 
 from ..peer import camera_frame_size, clear_ready, frame_geometry, introduce, prepare_engine, wait_for_mailbox
+from ..peer import FRAME_TIMEOUT, WARMUP_TIMEOUT, infer_frame
+
+
+def test_first_phone_frame_warms_up_then_uses_nonblocking_normal_sends():
+  """The first model reply may be slow; a busy later send must not reset USB."""
+
+  class Client:
+    def __init__(self):
+      self.calls = []
+
+    def infer(self, warped, packed, frame_id, *, deadline):
+      self.calls.append(("warmup", deadline))
+      return [0.0]
+
+    def drain(self):
+      self.calls.append(("drain", None))
+      return 0
+
+    def infer_begin(self, warped, packed, frame_id, *, skip_if_busy=False):
+      self.calls.append(("send", skip_if_busy))
+      return 1
+
+    def infer_end(self, seq, *, hold):
+      self.calls.append(("hold", hold))
+      return None
+
+  client = Client()
+  infer_frame(client, None, None, 1, warmed=False)
+  assert infer_frame(client, None, None, 2, warmed=True) is None
+
+  assert client.calls == [("warmup", WARMUP_TIMEOUT), ("drain", None), ("send", True),
+                        ("hold", FRAME_TIMEOUT)]
+  assert 3.0 < WARMUP_TIMEOUT <= 180.0
+  assert FRAME_TIMEOUT < 0.1
+
+
+def test_busy_phone_queue_skips_the_frame_without_touching_the_link():
+  """USB backpressure drops one phone frame, never the whole transport."""
+
+  class Client:
+    def __init__(self):
+      self.ended = False
+
+    def drain(self):
+      return 0
+
+    def infer_begin(self, warped, packed, frame_id, *, skip_if_busy=False):
+      assert skip_if_busy is True
+      return None
+
+    def infer_end(self, seq, *, hold):
+      self.ended = True
+      raise AssertionError("no reply can exist for a frame that was not sent")
+
+  client = Client()
+  assert infer_frame(client, None, None, 1, warmed=True) is None
+  assert client.ended is False
 
 
 def test_introduce_hands_the_phone_hello_to_the_owner():

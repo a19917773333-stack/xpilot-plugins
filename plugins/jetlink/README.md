@@ -15,6 +15,14 @@ owner, loads the named engine, and keeps its USB lease open without sending unsu
 `jetlink_modeld` still waits for a drive; when the drive mailbox appears, the already-open peer session
 switches to camera frames.
 
+The first inference may spend up to 120 seconds loading the selected engine on the phone. That request keeps the
+same USB lease open while the local model drives. After the first valid reply, normal frames return to the 50 ms
+mailbox deadline, so a late or dead phone still falls back locally instead of stalling the drive.
+A single frame held past that deadline stays on the same session; only a sustained host stall ends the link.
+When the USB transmit queue is busy, the peer skips that phone frame instead of using a short blocking send timeout,
+which could abort FunctionFS and force the host to re-enumerate. Before each send it drains replies that arrived
+after the previous hold, keeping late frames from accumulating in flight.
+
 When modeld retires its mailbox or camerad stops publishing, `jetlink_peer` exits instead of replaying
 an unlinked frame file. The host manager then restarts it, which reopens the USB lease and repeats the phone
 handshake before the next drive.

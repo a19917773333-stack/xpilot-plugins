@@ -22,6 +22,7 @@ HELLO_TIMEOUT = 10.0
 MAILBOX_POLL = 0.2
 FRAME_TIMEOUT = 0.05
 ENGINE_RETRY = 10.0
+WARMUP_TIMEOUT = 120.0
 
 
 def address(buf) -> int:
@@ -75,6 +76,27 @@ def introduce(link, client, log) -> dict:
   log.warning("jetlink: phone %s connected (engine %s)",
               hello.get("device") or "peer", hello.get("engine_state") or "unknown")
   return hello
+
+
+def infer_frame(client, warped, packed, frame_id, *, warmed):
+  """Use a bounded warmup for the first reply, then the mailbox's frame deadline.
+
+  Loading an engine can take tens of seconds. Abandoning that first reply at the
+  mailbox's 50 ms deadline closes the USB lease and makes the host re-enumerate,
+  which can turn a working USB 3 session into USB 2. Once the phone has answered,
+  keep every later frame behind the same short deadline used by the local model.
+  """
+  if not warmed:
+    return client.infer(warped, packed, frame_id, deadline=WARMUP_TIMEOUT)
+  # Reap replies that arrived after the previous frame's hold. The send must
+  # never wait on a busy USB queue: try_send can skip this frame without
+  # treating the host as dead, while a short blocking send deadline can make
+  # FunctionFS abort the whole transport and force a re-enumeration.
+  client.drain()
+  seq = client.infer_begin(warped, packed, frame_id, skip_if_busy=True)
+  if seq is None:
+    return None
+  return client.infer_end(seq, hold=FRAME_TIMEOUT)
 
 
 def prepare_engine(client, value, log):
@@ -183,6 +205,7 @@ def main() -> None:
     epoch = 0
     served = 0
     last_note = 0.0
+    warmed = False
     while True:
       if not box.alive:
         cloudlog.warning("jetlink: modeld retired the mailbox; reconnecting the phone")
@@ -191,6 +214,8 @@ def main() -> None:
       if frame is None:
         _time.sleep(0.002)
         continue
+      if not warmed:
+        params.put(STATUS_PARAM, "warming phone model", block=False)
       try:
         main_buf = main_stream.recv()
         extra_buf = extra_stream.recv()
@@ -200,9 +225,15 @@ def main() -> None:
         warp.start(address(main_buf.data), address(extra_buf.data), frame.img, frame.big_img)
         warp.wait()
         packed = np.concatenate([frame.desire, frame.traffic_convention, frame.action_t]).astype(np.float32)
-        raw = client.infer(warp.output, packed, frame.frame, deadline=FRAME_TIMEOUT)
+        raw = infer_frame(client, warp.output, packed, frame.frame, warmed=warmed)
+        if raw is None:
+          epoch += 1
+          continue
         if raw.shape[0] < HEAD_COUNT:
           raise ValueError(f"the phone returned {raw.shape[0]} floats, the host reads {HEAD_COUNT}")
+        if not warmed:
+          warmed = True
+          cloudlog.warning("jetlink: phone model warmed up; normal frame deadline is %.0f ms", FRAME_TIMEOUT * 1000)
         if box.reply(frame.session, epoch, frame.frame, frame.eof, raw[:HEAD_COUNT]):
           served += 1
         now = _time.monotonic()
