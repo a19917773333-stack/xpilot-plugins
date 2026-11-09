@@ -10,10 +10,13 @@ ADDRESS = 0x3E9
 BUS = 1
 TEMPLATE_MAX_AGE_NS = 1_500_000_000
 SEND_INTERVAL_NS = 100_000_000
-FEEDBACK_TIMEOUT_NS = 2_500_000_000
-CANCEL_TOTAL_TIMEOUT_NS = 5_000_000_000
+RESEND_NS = 1_000_000_000
+MAX_ACTION_ATTEMPTS = 4
+FEEDBACK_TIMEOUT_NS = (MAX_ACTION_ATTEMPTS - 1) * RESEND_NS
+CANCEL_TOTAL_TIMEOUT_NS = 9_000_000_000
 SESSION_TIMEOUT_NS = 60_000_000_000
-MAX_CANCEL_ATTEMPTS = 3
+MAX_CANCEL_ATTEMPTS = 20
+HELD_REQUEST_MAX_NS = 15_000_000_000
 TURN_REQUESTS = {"left": 1, "right": 2, "cancel": 3}
 ACTIVE_REASON = 8
 CANCEL_REASON = 4
@@ -139,10 +142,8 @@ class TurnSignalController:
       elif int(getattr(cs, "brakePressed", False)):
         return self._cancel(now_ns)
       elif not requested:
-        # Keep the lamp for the current maneuver while a blind-spot/road-edge gate blocks the change, so the
-        # driver can still complete the turn after the obstruction clears. Cancel only when the maneuver
-        # changes, the driver brakes, the session times out, or the lamp is already off.
-        if physical_on and enabled and intent.get("valid") and bool(getattr(cc, "latActive", False)):
+        if (physical_on and enabled and intent.get("valid") and bool(getattr(cc, "latActive", False))
+            and age <= HELD_REQUEST_MAX_NS):
           self.active["held"] = True
           return []
         return self._cancel(now_ns)
@@ -150,14 +151,13 @@ class TurnSignalController:
         self.active["held"] = physical_on
         if physical_on:
           return []
-        if age > FEEDBACK_TIMEOUT_NS:
-          self._failed_key = self._key(intent)
-          return self._cancel(now_ns)
         if not self._can_send(now_ns):
           return []
-        # One retry if the first frame produced no feedback.
-        if self.active.get("action_attempts", 0) >= 2:
-          return []  # Await feedback until the original bounded deadline; do not cut the lamp early.
+        if now_ns - int(self.active.get("action_sent_ns", 0)) < RESEND_NS:
+          return []
+        if self.active.get("action_attempts", 0) >= MAX_ACTION_ATTEMPTS:
+          self._failed_key = self._key(intent)
+          return self._cancel(now_ns)
         if self.template is None or now_ns - self.template_ns > TEMPLATE_MAX_AGE_NS:
           return []
         counter = (decode(self.template)["counter"] + 1) % 16

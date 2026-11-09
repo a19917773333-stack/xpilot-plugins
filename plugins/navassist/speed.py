@@ -12,11 +12,27 @@ COMFORT_BRAKE = 1.2
 ACTUATION_DELAY_S = 1.0
 ADMISSION_MARGIN_M = 5.0
 ACTIVATION_MARGIN_M = 25.0
+TURN_ACTIVATION_MARGIN_M = 60.0
+COMFORT_DECEL = 0.9
+OUTPUT_DECEL_RATE = 1.2
+MANEUVER_SPEEDS_KPH = {
+  "turn_left": 25.0, "turn_right": 25.0,
+  "sharp_left": 22.0, "sharp_right": 22.0,
+  "u_turn_left": 15.0, "u_turn_right": 15.0,
+  "roundabout": 25.0,
+  "ramp_left": 55.0, "ramp_right": 55.0,
+  "slight_left": 55.0, "slight_right": 55.0,
+  "exit_left": 55.0, "exit_right": 55.0,
+}
 MAX_MANEUVER_DISTANCE_M = 2_000.0
 MAX_NAV_SPEED_MPS = 70.0 / 3.6
 MIN_TARGET_SPEED_MPS = 2.0
 RELEASE_ACCEL_MPS2 = 1.0
 DT = 0.05
+TURN_MANEUVERS = frozenset((
+  "turn_left", "turn_right", "sharp_left", "sharp_right",
+  "u_turn_left", "u_turn_right", "roundabout",
+))
 
 TARGET_SPEEDS = {
   "slight_left": 12.5, "slight_right": 12.5,   # 45 km/h：往左/右前方行驶不该压到 29
@@ -55,9 +71,15 @@ class NavigationSpeedCeiling:
     return braking + v_ego * ACTUATION_DELAY_S
 
   def _target_for(self, nav: dict) -> float | None:
-    default = TARGET_SPEEDS.get(str(nav.get("maneuver", "none")))
-    if default is not None and str(nav.get("maneuver")) in ("turn_left", "turn_right"):
-      default = self.settings.turn_speed_kph / 3.6
+    maneuver = str(nav.get("maneuver", "none"))
+    kph = MANEUVER_SPEEDS_KPH.get(maneuver)
+    if kph is not None:
+      default = kph / 3.6
+      # The driver setting may lower an ordinary turn target but not raise it above the bounded default.
+      if maneuver in ("turn_left", "turn_right"):
+        default = min(default, self.settings.turn_speed_kph / 3.6)
+    else:
+      default = TARGET_SPEEDS.get(maneuver)
     if default is None:
       return None
     advisory = float(nav.get("advisorySpeedMps") or 0.0)
@@ -117,10 +139,19 @@ class NavigationSpeedCeiling:
         self._release(v_cruise)
         return self.output
       if distance > self._required + ACTIVATION_MARGIN_M:
-        self._release(v_cruise)
-        return self.output
+        margin = (TURN_ACTIVATION_MARGIN_M
+                  if str(nav.get("maneuver", "")) in TURN_MANEUVERS else ACTIVATION_MARGIN_M)
+        if distance > self._required + margin:
+          self._release(v_cruise)
+          return self.output
       self._activated = True
     self.is_active = True
     self._releasing = False
-    self.output = min(v_cruise, self._target)
+    curve = math.sqrt(max(
+      0.0, self._target * self._target + 2.0 * COMFORT_DECEL * max(0.0, distance),
+    ))
+    limit = min(v_cruise, curve)
+    if self.output is not None:
+      limit = max(limit, self.output - OUTPUT_DECEL_RATE * DT)
+    self.output = min(limit, v_ego)
     return self.output

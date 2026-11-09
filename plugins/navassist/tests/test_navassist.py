@@ -20,7 +20,7 @@ from navassist.blocker import LaneChangeBlocker
 from navassist.intent import LaneIntentCoordinator, TurnSignalCoordinator, lane_plan
 from navassist.oem import ALC_AVAILABLE_ONLY_R, ALC_UNAVAILABLE_SOLID_LANE_LINE, OemLaneSignals
 from navassist.settings import NavSettings
-from navassist.speed import NavigationSpeedCeiling
+from navassist.speed import COMFORT_DECEL, OUTPUT_DECEL_RATE, NavigationSpeedCeiling
 from navassist.store import NavAssistStore
 from navassist.turnsignal import TurnSignalController, build, checksum, decode, is_idle_template
 from navassist.wire import NavAssistProtocolError, parse_snapshot
@@ -118,9 +118,10 @@ def test_speed_activates_and_releases():
   ceiling = NavigationSpeedCeiling(NavSettings(turn_speed_kph=18))
   nav = {"valid": True, "stale": False, "maneuver": "turn_left", "distanceM": 60.0,
          "sessionId": "s", "routeRevision": 1, "maneuverEventId": 3}
-  assert ceiling.update(nav, v_ego=10.0, v_cruise=15.0, enabled=True, driver_override=False) == pytest.approx(5.0)
+  assert ceiling.update(nav, v_ego=10.0, v_cruise=15.0, enabled=True, driver_override=False) == pytest.approx(10.0)
   nav["distanceM"] = 0.0
-  assert ceiling.update(nav, v_ego=10.0, v_cruise=15.0, enabled=True, driver_override=False) == pytest.approx(5.0)
+  limited = ceiling.update(nav, v_ego=10.0, v_cruise=15.0, enabled=True, driver_override=False)
+  assert limited == pytest.approx(10.0 - OUTPUT_DECEL_RATE * 0.05)
   released = ceiling.update(nav, v_ego=10.0, v_cruise=15.0, enabled=True, driver_override=True)
   assert released is not None and released > 5.0
 
@@ -131,7 +132,8 @@ def test_speed_accepts_70_kph_but_releases_above_boundary():
   nav = {"valid": True, "stale": False, "maneuver": "turn_right", "distanceM": 170.0,
          "sessionId": "s", "routeRevision": 1, "maneuverEventId": 7}
   assert ceiling.update(nav, v_ego=70/3.6, v_cruise=80/3.6, enabled=True,
-                        driver_override=False) == pytest.approx(25/3.6)
+                        driver_override=False) == pytest.approx(
+                          ((25/3.6)**2 + 2.0*COMFORT_DECEL*170.0) ** 0.5)
   assert ceiling.is_active
   released = ceiling.update(nav, v_ego=70/3.6+.001, v_cruise=80/3.6, enabled=True,
                             driver_override=False)
@@ -139,6 +141,15 @@ def test_speed_accepts_70_kph_but_releases_above_boundary():
   fresh = NavigationSpeedCeiling(NavSettings(turn_speed_kph=25))
   assert fresh.update(nav, v_ego=70/3.6+.001, v_cruise=80/3.6, enabled=True,
                       driver_override=False) is None
+
+
+@pytest.mark.parametrize(('maneuver', 'kph'), [
+  ('turn_left', 25.0), ('sharp_right', 22.0), ('u_turn_left', 15.0),
+  ('roundabout', 25.0), ('ramp_left', 55.0), ('slight_right', 55.0),
+])
+def test_speed_target_depends_on_maneuver_shape(maneuver, kph):
+  ceiling = NavigationSpeedCeiling(NavSettings(turn_speed_kph=30))
+  assert ceiling._target_for({'maneuver': maneuver}) == pytest.approx(kph / 3.6)
 
 
 def test_turn_coordinator_window():

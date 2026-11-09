@@ -1,9 +1,8 @@
-"""Failures first: two unacknowledged requests cancel after ~0.2 s despite
-2.5 s feedback allowance; the same failed event restarts every few cycles;
-a cancellation/new-event boundary bypasses the global CAN send interval.
-"""
+"""Failures first: unacknowledged requests retry once per second, stop after
+four bounded attempts, and cannot restart until a new event; a cancellation/
+new-event boundary still obeys the global CAN send interval."""
 from types import SimpleNamespace as N
-from navassist.turnsignal import TurnSignalController,checksum,decode,FEEDBACK_TIMEOUT_NS,SEND_INTERVAL_NS
+from navassist.turnsignal import TurnSignalController,checksum,decode,SEND_INTERVAL_NS
 
 
 def setup():
@@ -19,26 +18,37 @@ def tick(wire,intent,cs,cc,now):
   return wire.update(intent,cs,cc,now,enabled=True)
 
 
-def test_wait_for_feedback_instead_of_cancelling_after_retry():
+def test_retries_each_second_then_waits_for_feedback_before_cancel():
   w,i,c,a=setup();base=1_000_000_000
   assert decode(tick(w,i,c,a,base)[0][1])['turn']==2
-  assert decode(tick(w,i,c,a,base+SEND_INTERVAL_NS)[0][1])['turn']==2
-  for offset in (2*SEND_INTERVAL_NS,500_000_000,1_000_000_000,FEEDBACK_TIMEOUT_NS):
-    assert tick(w,i,c,a,base+offset)==[]
+  assert tick(w,i,c,a,base+500_000_000)==[]
+  for attempt in range(1,4):
+    assert decode(tick(w,i,c,a,base+attempt*1_000_000_000)[0][1])['turn']==2
   c.rightBlinker=True
-  assert tick(w,i,c,a,base+FEEDBACK_TIMEOUT_NS+1)==[]
-  assert w.active['phase']=='active'
+  assert tick(w,i,c,a,base+3_000_000_001)==[]
+  assert w.active['phase']=='active' and w.active['action_attempts']==4
 
 
 def test_failed_event_expires_once_and_cannot_restart_until_a_new_event():
   w,i,c,a=setup();base=1_000_000_000
-  tick(w,i,c,a,base);tick(w,i,c,a,base+SEND_INTERVAL_NS)
-  now=base+FEEDBACK_TIMEOUT_NS+1
+  for offset in range(4):
+    assert decode(tick(w,i,c,a,base+offset*1_000_000_000)[0][1])['turn']==2
+  now=base+4_000_000_000
   assert decode(tick(w,i,c,a,now)[0][1])['turn']==3
   for offset in (10_000_000,200_000_000,1_000_000_000,60_000_000_000):
     assert tick(w,i,c,a,now+offset)==[]
   i['requestId']=8
   assert decode(tick(w,i,c,a,now+60_000_000_000+SEND_INTERVAL_NS)[0][1])['turn']==2
+
+
+
+
+def test_physical_feedback_stops_resend_without_cancelling():
+  w,i,c,a=setup();base=1_000_000_000
+  assert decode(tick(w,i,c,a,base)[0][1])['turn']==2
+  c.rightBlinker=True
+  assert tick(w,i,c,a,base+1_000_000_000)==[]
+  assert w.active['phase']=='active' and w.active['action_attempts']==1
 
 
 def test_new_request_after_cancel_still_obeys_global_rate_limit():

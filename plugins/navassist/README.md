@@ -1,6 +1,8 @@
 # Navigation Assist - host-compatible ABI 1
 
-Current release 2.4.6 targets the current host API 1 and runtime-rule ABI 1. It uses `template_clone.v1` and no longer requires `buzzer_policy` or the host bus-policy dataclass. Physical signal requests remain bounded by the existing brake, relay, template, counter, checksum, time and session gates, and active requests require primary cruise authority. The earlier MADS-only behaviour is not available on this host. Navigation notices use the standard warning/prompt alert path.
+Current release 2.4.7 targets the current host API 1 and runtime-rule ABI 1. It uses `template_clone.v1` and no longer requires `buzzer_policy` or the host bus-policy dataclass. Physical signal requests remain bounded by the existing brake, relay, template, counter, checksum, time and session gates, and active requests require primary cruise authority. The earlier MADS-only behaviour is not available on this host. Navigation notices use the standard warning/prompt alert path.
+
+2.4.7 adds bounded maneuver-aware slowdown and a smoother 0.9 m/s2 deceleration curve. Ordinary turn lamps use a 120 m maximum lookahead, bounded restart pulses after stopping, a ten-second no-progress release before the turn, and four one-second request attempts. Route-revision/session changes, brake input, opposite driver signals, stale data and completion ownership retain their existing release behavior. No OEM crossing gate is bypassed.
 
 
 Personal fork: [Sniper-Eon/xpilot](https://github.com/Sniper-Eon/xpilot), branch `xpilot`.

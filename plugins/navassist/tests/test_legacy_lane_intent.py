@@ -177,6 +177,25 @@ def test_navigation_turn_signal_holds_through_recorded_snapshot_gaps_until_maneu
   assert not released.signal_requested
 
 
+def test_navigation_turn_signal_releases_a_stalled_pre_turn_request():
+  coordinator = NavTurnSignalCoordinator()
+  coordinator.update(turn_plan(distance=80.0), speed_mps=12.0, now_ns=0)
+  held = coordinator.update(turn_plan(distance=80.0), speed_mps=12.0, now_ns=9_000_000_000)
+  stalled = coordinator.update(turn_plan(distance=80.0), speed_mps=12.0, now_ns=10_000_000_001)
+
+  assert held.signal_requested
+  assert not stalled.signal_requested and stalled.reason == "turnLampStalled"
+
+
+def test_navigation_turn_signal_restarts_after_stopping_at_the_turn():
+  coordinator = NavTurnSignalCoordinator()
+  coordinator.update(turn_plan(distance=20.0), speed_mps=0.0, now_ns=0)
+  restarted = coordinator.update(turn_plan(distance=20.0), speed_mps=2.0, now_ns=1_000_000_000)
+
+  assert restarted.signal_requested and restarted.reason == "turnRestartPulse"
+  assert restarted.direction == LaneIntentDirection.left and restarted.request_id == 11
+
+
 def test_navigation_turn_signal_retains_a_bounded_hard_timeout():
   coordinator = NavTurnSignalCoordinator()
   coordinator.update(turn_plan(), speed_mps=15.0, now_ns=0)

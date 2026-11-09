@@ -131,6 +131,16 @@ def test_intermittent_observation_and_source_waits_cannot_extend_signal_timeout(
     pytest.fail('Preparation held beyond its original overall timeout')
 
 
+def test_continuous_missing_observation_releases_before_plan_continuity_wait_ends():
+  coordinator, plan, topology, car, _ = preparation()
+  missing = replace(topology, right_neighbor_exists=None)
+  assert coordinator.update(plan, missing, car, now_ns=2_500_000_000).signal_requested
+  released = coordinator.update(plan, missing, car, now_ns=8_500_000_001)
+
+  assert not released.signal_requested
+  assert released.reason == 'neighborObservationTimeout'
+
+
 def test_started_absolute_change_keeps_original_completion_rules_on_source_switch():
   coordinator, plan, topology, car, request_id = preparation()
   changing = replace(car, lane_change_state=ObservedLaneChangeState.starting,
