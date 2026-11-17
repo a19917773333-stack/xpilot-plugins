@@ -5,7 +5,7 @@
 - D4 a TLSSC stop (red/yellow or a near stop line, TLSSC active) at any speed does not propose stock,
      or an inactive/missing/green-without-stop-line tlssc.state changes the speed rule
 """
-from ..logic import KPH, desired_owner
+from ..logic import KPH, TouchToggle, desired_owner
 
 
 def test_thresholds():
@@ -32,3 +32,22 @@ def test_tlssc_stop_hands_to_stock():
   for state in (None, {}, {"active": False, "color": 1}, {"active": True, "color": 2, "stop_m": 0}, {"active": True, "stop_m": 150}):
     assert desired_owner(30 / KPH, 80, 70, state) == "sp"
     assert desired_owner(75 / KPH, 80, 70, state) is None
+
+
+def test_touch_toggle_uses_a_rising_four_finger_edge():
+  touch = TouchToggle()
+  assert touch.update(0, "sp", True, True) is None
+  assert touch.update(4, "sp", True, True) == "stock"
+  assert touch.update(4, "stock", True, True) == "stock"
+  assert touch.update(0, "stock", True, True) == "stock"
+  assert touch.update(4, "stock", True, True) == "sp"
+
+
+def test_touch_toggle_ignores_a_held_start_and_clears_when_unavailable():
+  touch = TouchToggle()
+  assert touch.update(4, "sp", True, True) is None
+  assert touch.update(0, "sp", True, True) is None
+  assert touch.update(4, "sp", True, True) == "stock"
+  assert touch.update(4, "stock", False, True) is None
+  assert touch.update(0, "stock", True, True) is None
+  assert touch.update(4, "stock", True, True) == "sp"

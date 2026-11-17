@@ -1,5 +1,5 @@
 from .. import stalk
-from ..logic import LEFT, RIGHT, SPACING_NS, Decider
+from ..logic import LEFT, RIGHT, SPACING_NS, Decider, TurnSignal
 
 S = 1_000_000_000
 
@@ -56,3 +56,28 @@ def test_flicker_restarts_hold():
   d = Decider(threshold=.6)
   taps = [r for t in range(60) if (r := d.update(t * S // 20, nav(left=(.9 if t % 15 else .1, 0)), True, True, False, False))]
   assert taps == [] and SPACING_NS == 8 * S
+
+
+def test_turn_signal_taps_once_for_a_near_navigation_turn():
+  route = nav()
+  route['state'][1] = 13  # left turn
+  route['state'][4] = 50  # metres to the maneuver
+  turn = TurnSignal(distance_m=80)
+  assert turn.update(route, 4.0, False) == LEFT
+  assert turn.update(route, 4.0, False) == 0
+
+  route['state'][4] = 90
+  assert turn.update(route, 4.0, False) == 0
+  route['state'][4] = 50
+  assert turn.update(route, 4.0, False) == LEFT
+
+
+def test_turn_signal_right_and_safety_gates():
+  route = nav()
+  route['state'][1] = 10  # right turn
+  route['state'][4] = 50
+  assert TurnSignal().update(route, 4.0, True) == 0  # already blinking
+  assert TurnSignal().update(route, 9.0, False) == 0  # too fast for a turn-only signal
+  assert TurnSignal().update(route, 4.0, False) == RIGHT
+  route['health'] = 15
+  assert TurnSignal().update(route, 4.0, False) == 0  # rerouting

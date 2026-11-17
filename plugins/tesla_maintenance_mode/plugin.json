@@ -1,0 +1,131 @@
+{
+  "id": "tesla_maintenance_mode",
+  "name": "\u7ef4\u62a4\u6a21\u5f0f\u5f00\u5173",
+  "version": "1.0.1",
+  "api": 1,
+  "use": "onroad",
+  "category": "actuation",
+  "entry": "plugin:TeslaMaintenanceMode",
+  "author": "xpilot",
+  "description": "\u70b9\u51fb\u201c\u53d1\u9001\u4e00\u6b21\u201d\u540e\uff0c\u5728 CAN2 \u53d1\u9001\u4e00\u5e27 0x339\uff1a00 00 00 00 00 80 00 00\u3002\u53ea\u53d1\u9001\u4e00\u6b21\uff0c\u4e0d\u4f1a\u81ea\u52a8\u91cd\u590d\uff0c\u4e5f\u4e0d\u4f1a\u53d1\u9001\u9000\u51fa\u5e27\u3002",
+  "priority": 1,
+  "enable_param": "ExtTeslaMaintenanceModeEnabled",
+  "claims": [
+    "can.tx:0x339:1"
+  ],
+  "settings": [
+    {
+      "key": "ExtTeslaMaintenanceModeSend",
+      "label": "\u53d1\u9001\u4e00\u6b21\u7ef4\u62a4\u6a21\u5f0f\u547d\u4ee4"
+    }
+  ],
+  "params": {
+    "ExtTeslaMaintenanceModeEnabled": {
+      "type": "BOOL",
+      "default": "0"
+    },
+    "ExtTeslaMaintenanceModeSend": {
+      "type": "BOOL",
+      "default": "0"
+    }
+  },
+  "requires": {
+    "hooks": [
+      "service_params",
+      "control_sends"
+    ],
+    "rule_abi": 1
+  },
+  "rules": [
+    {
+      "type": "template_clone.v1",
+      "tx_address": 825,
+      "rx_address": 962,
+      "tx_bus": 1,
+      "rx_bus": 1,
+      "tx_length": 8,
+      "rx_length": 8,
+      "template_ttl_us": 8000000,
+      "min_interval_us": 1000000,
+      "session": 1,
+      "max_count": 1,
+      "idle_reset_us": 1000000,
+      "max_span_us": 0,
+      "counter": {
+        "kind": 0,
+        "bit_offset": 0,
+        "width": 0
+      },
+      "tx_checksum": {
+        "kind": 0,
+        "checksum_byte": 0
+      },
+      "rx_checksum": {
+        "kind": 0,
+        "checksum_byte": 0
+      },
+      "predicate_mask": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "predicate_value": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "copy_mask": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "constant_mask": [
+        0,
+        0,
+        0,
+        0,
+        255,
+        255,
+        255,
+        255
+      ],
+      "constant_value": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        128,
+        0,
+        0
+      ],
+      "fields": [
+        {
+          "bit_offset": 0,
+          "width": 32,
+          "min": 0,
+          "max": 0,
+          "exempt_values": [
+            0
+          ]
+        }
+      ],
+      "legal_tuples": []
+    }
+  ]
+}
